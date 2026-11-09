@@ -234,8 +234,8 @@ export function Sidebar({
               <span className="num">{db.machinery.length}</span>
             </p>
             <p className="flex justify-between">
-              <span>عناصر التكلفة</span>
-              <span className="num">{db.costElements.length}</span>
+              <span>أنواع الرش</span>
+              <span className="num">{(db.sprayCoatings ?? []).length}</span>
             </p>
           </div>
         </div>

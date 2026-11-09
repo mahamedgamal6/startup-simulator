@@ -23,7 +23,7 @@ export const DATA_TABLES = [
   { key: 'molds', label: 'الإسطمبات' },
   { key: 'machinery', label: 'الماكينات' },
   { key: 'packaging', label: 'التعبئة' },
-  { key: 'costElements', label: 'عناصر التكلفة' },
+  { key: 'sprayCoatings', label: 'الرش والطلاء' },
 ] as const;
 
 export type DataTableKey = (typeof DATA_TABLES)[number]['key'];
@@ -75,7 +75,7 @@ export const PERMISSION_GROUPS: PermissionGroupDef[] = [
     permissions: [
       { key: 'finance.view', label: 'عرض التحليل المالي' },
       { key: 'finance.simulate', label: 'تشغيل محاكي التكلفة' },
-      { key: 'finance.edit_costs', label: 'الانتقال لتعديل عناصر التكلفة' },
+      { key: 'finance.edit_costs', label: 'مراجعة عناصر التكلفة المحسوبة' },
     ],
   },
   {

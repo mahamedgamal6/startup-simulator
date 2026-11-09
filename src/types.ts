@@ -118,6 +118,18 @@ export interface CostElement extends BaseRow {
   overhead: number;
 }
 
+export interface SprayCoating extends BaseRow {
+  code: string;
+  name: string;
+  type: string;
+  color: string;
+  costPerProduct: number;
+  supplier: string;
+  notes: string;
+  /** المنتجات التي يُطبَّق عليها هذا الرش/الطلاء؛ فارغة تعني غير مستخدم حالياً */
+  productCodes: string[];
+}
+
 export type InspectionStatus = 'pass' | 'fail' | 'rework';
 
 export interface Inspection extends BaseRow {
@@ -142,7 +154,9 @@ export interface Database {
   spareParts: SparePart[];
   images: FactoryImage[];
   packaging: PackagingRow[];
+  /** محسوبة تلقائيًا لكل منتج (للتوافق فقط — لا تُخزَّن ولا تُعدَّل) */
   costElements: CostElement[];
+  sprayCoatings: SprayCoating[];
   inspections: Inspection[];
   settings: Settings;
 }
@@ -154,7 +168,7 @@ export interface TableMap {
   molds: Mold;
   machinery: Machinery;
   packaging: PackagingRow;
-  costElements: CostElement;
+  sprayCoatings: SprayCoating;
 }
 
 

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowUpRight,
-  Calculator,
   Coins,
   FlaskConical,
   Layers,
@@ -12,7 +11,6 @@ import {
 import { ProductPicker } from '../components/ProductPicker';
 import {
   Badge,
-  Button,
   Card,
   ProgressBar,
   RangeSlider,
@@ -26,7 +24,6 @@ import {
   containerLoads,
   discCostOf,
   economicsOf,
-  findCostForProduct,
   findRawForProduct,
 } from '../lib/cost';
 import type { TableKey } from '../types';
@@ -37,7 +34,7 @@ export function FinanceScreen({
   can,
   productCode,
   onSelect,
-  onNavigateData,
+  onNavigateData: _onNavigateData,
 }: {
   can: (permission: string) => boolean;
   productCode: string;
@@ -48,7 +45,6 @@ export function FinanceScreen({
   const [sortKey, setSortKey] = useState<SortKey>('profit');
   const canSimulate = can('finance.simulate');
   const canEditSettings = can('settings.edit');
-  const canEditCosts = can('finance.edit_costs');
 
   const product = db.products.find((item) => item.code === productCode) ?? db.products[0];
   const factor = db.settings.aluminumFactor;
@@ -58,11 +54,10 @@ export function FinanceScreen({
   const rows = useMemo(
     () =>
       db.products.map((item) => {
-        const cost = findCostForProduct(db, item.code);
-        const econ = economicsOf(cost, factor, margin);
+        const econ = economicsOf(db, item.code, factor, margin);
         const raw = findRawForProduct(db, item.code);
         const load = containerLoads(item, econ.price)[0];
-        return { product: item, cost, econ, raw, load };
+        return { product: item, econ, raw, load };
       }),
     [db, factor, margin],
   );
@@ -80,8 +75,8 @@ export function FinanceScreen({
 
   const sensitivities = [-20, -10, 0, 10, 20].map((percent) => {
     const nextFactor = 1 + percent / 100;
-    const next = economicsOf(selected?.cost, nextFactor, margin);
-    return { percent, ...next };
+    const code = selected?.product.code ?? db.products[0]?.code ?? '';
+    return { percent, ...economicsOf(db, code, nextFactor, margin) };
   });
 
   const avgCost =
@@ -108,11 +103,7 @@ export function FinanceScreen({
             فورية لسعر البيع وهامش الربح.
           </p>
         </div>
-        {canEditCosts ? (
-          <Button variant="outline" onClick={() => onNavigateData('costElements')}>
-            <Calculator size={16} /> تعديل عناصر التكلفة
-          </Button>
-        ) : null}
+        {/* عناصر التكلفة تُحسب تلقائيًا لكل منتج */}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -344,7 +335,7 @@ export function FinanceScreen({
           </div>
 
           <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
-            الحساسية محسوبة على تكلفة الخام المباشرة المسجلة في جدول عناصر التكلفة. تغيّر سعر
+            الحساسية محسوبة على تكلفة الخام المباشرة المحتسبة تلقائيًا من بيانات المنتج. تغيّر سعر
             الألومنيوم ينعكس على تكلفة القرص وعلى إجمالي التكلفة وسعر البيع بنفس النسبة.
           </p>
         </Card>

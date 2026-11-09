@@ -13,6 +13,7 @@ import { STORE_PRODUCT_PHOTOS } from '../data/storeProductImages';
 import { useToast } from '../components/ui';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured, rpc } from './supabase';
+import { computeCostForProduct } from './cost';
 import type {
   Accessory,
   CostElement,
@@ -28,19 +29,21 @@ import type {
   RawMaterial,
   Settings,
   SparePart,
+  SprayCoating,
   StageOverride,
   TableKey,
   TableMap,
 } from '../types';
 
 const STORAGE_KEY = 'elzonki.db.v1';
+const SPRAY_STORAGE_KEY = 'elzonki.sprays.v1';
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 function loadDatabase(): Database {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return clone(seedDatabase);
+    if (!stored) return withComputedCosts({ ...clone(seedDatabase), sprayCoatings: loadLocalSprays() });
     const parsed = JSON.parse(stored) as Partial<Database>;
     const base = clone(seedDatabase);
     const merged: Database = {
@@ -52,23 +55,26 @@ function loadDatabase(): Database {
       spareParts: normalizeSpareParts(parsed.spareParts),
       images: Array.isArray(parsed.images) ? normalizeImages(parsed.images) : base.images,
       inspections: normalizeInspections(parsed.inspections),
+      sprayCoatings: normalizeSprayCoatings(parsed.sprayCoatings ?? loadLocalSprays()),
+      costElements: [],
     };
-    return {
+    const normalized: Database = {
       ...merged,
-      products: merged.products.map((product) => ({
+      products: (merged.products ?? []).map((product) => ({
         ...product,
         stageMachines: product.stageMachines ?? {},
         stageOverrides: product.stageOverrides ?? {},
       })),
-      accessories: merged.accessories.map((accessory) => ({
+      accessories: (merged.accessories ?? []).map((accessory) => ({
         ...accessory,
         productCodes: Array.isArray(accessory.productCodes)
           ? accessory.productCodes
           : (base.accessories.find((item) => item.code === accessory.code)?.productCodes ?? []),
       })),
     };
+    return withComputedCosts(normalized);
   } catch {
-    return clone(seedDatabase);
+    return withComputedCosts({ ...clone(seedDatabase), sprayCoatings: loadLocalSprays() });
   }
 }
 
@@ -111,6 +117,42 @@ const normalizeSpareParts = (rows: SparePart[] | null | undefined): SparePart[] 
     replacementIntervalHours: Number(row.replacementIntervalHours) || 0,
     notes: row.notes ?? '',
   }));
+
+const normalizeSprayCoatings = (rows: SprayCoating[] | null | undefined): SprayCoating[] =>
+  (Array.isArray(rows) ? rows : []).map((row) => ({
+    ...row,
+    code: row.code ?? '',
+    name: row.name ?? '',
+    type: row.type ?? '',
+    color: row.color ?? '',
+    costPerProduct: Number(row.costPerProduct) || 0,
+    supplier: row.supplier ?? '',
+    notes: row.notes ?? '',
+    productCodes: Array.isArray(row.productCodes) ? row.productCodes : [],
+  }));
+
+function loadLocalSprays(): SprayCoating[] {
+  try {
+    const stored = localStorage.getItem(SPRAY_STORAGE_KEY);
+    if (!stored) return clone(seedDatabase.sprayCoatings ?? []);
+    return normalizeSprayCoatings(JSON.parse(stored) as SprayCoating[]);
+  } catch {
+    return clone(seedDatabase.sprayCoatings ?? []);
+  }
+}
+
+function saveLocalSprays(rows: SprayCoating[]) {
+  try {
+    localStorage.setItem(SPRAY_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    /* التخزين ممتلئ أو غير متاح */
+  }
+}
+
+function withComputedCosts(db: Database): Database {
+  const costElements = (db.products ?? []).map((product) => computeCostForProduct(db, product.code));
+  return { ...db, costElements };
+}
 
 const attemptedPhotoUpgrades = new Set<string>();
 
@@ -185,6 +227,7 @@ interface RemoteFactoryPayload {
   images?: FactoryImage[] | null;
   packaging?: PackagingRow[] | null;
   costElements?: CostElement[] | null;
+  sprayCoatings?: SprayCoating[] | null;
   inspections?: Inspection[] | null;
   settings?: Settings | null;
 }
@@ -318,22 +361,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
           normalizeProducts(remote.products),
           sessionToken,
         );
-        setDb((prev) => ({
-          ...prev,
-          products: normalizeProducts(remote.products),
-          rawMaterials: normalizeRaw(remote.rawMaterials),
-          accessories: normalizeAccessories(remote.accessories),
-          molds: normalizeMolds(remote.molds),
-          machinery: normalizeMachinery(remote.machinery),
-          spareParts: normalizeSpareParts(remote.spareParts),
-          images: remoteImages,
-          packaging: normalizePackaging(remote.packaging),
-          costElements: Array.isArray(remote.costElements) ? remote.costElements : [],
-          inspections: normalizeInspections(remote.inspections),
-          settings: remote.settings
-            ? { ...prev.settings, ...remote.settings }
-            : prev.settings,
-        }));
+        setDb((prev) => {
+          const sprays = Array.isArray(remote.sprayCoatings)
+            ? normalizeSprayCoatings(remote.sprayCoatings)
+            : prev.sprayCoatings?.length
+              ? prev.sprayCoatings
+              : loadLocalSprays();
+          saveLocalSprays(sprays);
+          return withComputedCosts({
+            ...prev,
+            products: normalizeProducts(remote.products),
+            rawMaterials: normalizeRaw(remote.rawMaterials),
+            accessories: normalizeAccessories(remote.accessories),
+            molds: normalizeMolds(remote.molds),
+            machinery: normalizeMachinery(remote.machinery),
+            spareParts: normalizeSpareParts(remote.spareParts),
+            images: remoteImages,
+            packaging: normalizePackaging(remote.packaging),
+            sprayCoatings: sprays,
+            inspections: normalizeInspections(remote.inspections),
+            settings: remote.settings
+              ? { ...prev.settings, ...remote.settings }
+              : prev.settings,
+          });
+        });
         setSyncState({
           ready: true,
           syncing: false,
@@ -418,12 +469,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (index >= 0) list[index] = row;
           else list.unshift(row);
         }
-        const next = { ...prev, [table]: list } as Database;
+        let next = { ...prev, [table]: list } as Database;
         if (movedCodes.size) {
           next.inspections = prev.inspections.map((item) => {
             const code = movedCodes.get(item.productCode);
             return code ? { ...item, productCode: code } : item;
           });
+        }
+        if (table === 'sprayCoatings') {
+          saveLocalSprays(next.sprayCoatings ?? []);
+          next = withComputedCosts(next);
         }
         return next;
       });
@@ -431,6 +486,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       writeInFlight.current += 1;
       let failed = false;
       try {
+        if (table === 'sprayCoatings') {
+          try {
+            await rpc('app_upsert_spray_coatings', {
+              p_token: sessionToken,
+              p_rows: rows,
+            });
+          } catch {
+            /* الجدول قد لا يكون مفعّلًا على الخادم بعد؛ الحفظ المحلي ناجح */
+          }
+          setSyncState((prev) => ({ ...prev, error: '', lastSyncedAt: new Date().toISOString() }));
+          return true;
+        }
         const saved = await rpc<TableMap[K][]>('app_upsert_factory_rows', {
           p_token: sessionToken,
           p_table: table,
@@ -490,7 +557,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           ? table
           : null;
       setDb((prev) => {
-        const next = {
+        let next = {
           ...prev,
           [table]: (prev[table] as { id: string }[]).filter((item) => item.id !== id),
         } as Database;
@@ -498,6 +565,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           next.inspections = prev.inspections.filter(
             (item) => item.productCode !== removedProduct.code,
           );
+          next.sprayCoatings = (prev.sprayCoatings ?? []).map((row) => ({
+            ...row,
+            productCodes: row.productCodes.filter((code) => code !== removedProduct.code),
+          }));
         }
         if (imageOwner) {
           next.images = prev.images.filter(
@@ -507,17 +578,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (table === 'machinery') {
           next.spareParts = prev.spareParts.filter((part) => part.machineId !== id);
         }
+        if (table === 'sprayCoatings') {
+          saveLocalSprays(next.sprayCoatings ?? []);
+          next = withComputedCosts(next);
+        }
         return next;
       });
 
       writeInFlight.current += 1;
       let failed = false;
       try {
-        await rpc('app_delete_factory_row', {
-          p_token: sessionToken,
-          p_table: table,
-          p_id: id,
-        });
+        if (table === 'sprayCoatings') {
+          try {
+            await rpc('app_delete_spray_coating', { p_token: sessionToken, p_id: id });
+          } catch {
+            /* الحفظ المحلي ناجح حتى لو لم يُفعَّل الجدول على الخادم */
+          }
+        } else {
+          await rpc('app_delete_factory_row', {
+            p_token: sessionToken,
+            p_table: table,
+            p_id: id,
+          });
+        }
         setSyncState((prev) => ({
           ...prev,
           error: '',
@@ -802,8 +885,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     inspectionTimers.current.clear();
     inspectionVersions.current.clear();
-    const seeded = clone(seedDatabase);
+    const seeded = withComputedCosts(clone(seedDatabase));
     setDb(seeded);
+    saveLocalSprays(seeded.sprayCoatings ?? []);
     if (!sessionToken) return true;
     writeInFlight.current += 1;
     try {

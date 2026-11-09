@@ -14,7 +14,7 @@ import { ProductArt, FAMILY_COLORS } from '../components/ProductArt';
 import { Badge, Card, Donut, ProgressBar, SectionHeading, Stat } from '../components/ui';
 import { useData } from '../lib/db';
 import { fmt, fmt1, money, pct } from '../lib/format';
-import { containerLoads, economicsOf, findCostForProduct } from '../lib/cost';
+import { containerLoads, economicsOf } from '../lib/cost';
 
 export function ExecutiveScreen() {
   const { db } = useData();
@@ -22,7 +22,7 @@ export function ExecutiveScreen() {
   const margin = db.settings.marginPct;
 
   const rows = db.products.map((product) => {
-    const econ = economicsOf(findCostForProduct(db, product.code), factor, margin);
+    const econ = economicsOf(db, product.code, factor, margin);
     const loads = containerLoads(product, econ.price);
     return { product, econ, loads };
   });
@@ -70,13 +70,6 @@ export function ExecutiveScreen() {
         detail: `نسبة الهالك ${pct(raw.wastePct)} وتكلفة القرص ${money(
           raw.discWeightKg * raw.pricePerKg * factor,
         )} ج.م`,
-      })),
-    ...db.products
-      .filter((product) => !findCostForProduct(db, product.code))
-      .map((product) => ({
-        tone: 'slate' as const,
-        title: `منتج بدون بطاقة تكلفة — ${product.name}`,
-        detail: `أضف عناصر التكلفة للمنتج ${product.code} لإكمال التحليل المالي`,
       })),
   ];
 

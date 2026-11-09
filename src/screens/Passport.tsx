@@ -12,6 +12,7 @@ import {
   Lock,
   Package,
   PackagePlus,
+  Paintbrush,
   Pencil,
   PieChart,
   Plus,
@@ -47,6 +48,7 @@ import {
   containerLoads,
   discCostOf,
   economicsOf,
+  findSpraysForProduct,
   findCostForProduct,
   findPackagingForProduct,
   findRawForProduct,
@@ -172,6 +174,9 @@ export function PassportScreen({
     (sum, item) => sum + item.qtyPerProduct * item.unitCost,
     0,
   );
+  const productSprays = findSpraysForProduct(db, product.code);
+  const canViewSprays = can('data.sprayCoatings.view') || can('passport.view');
+  const spraysCost = productSprays.reduce((sum, item) => sum + item.costPerProduct, 0);
   const stages = buildJourney(product, db.machinery, db.molds);
   const cycle = cycleSeconds(stages);
   const econ = economicsOf(cost, factor, margin);
@@ -203,11 +208,7 @@ export function PassportScreen({
     if (!productSaved) return;
     if (!isNew && product.code !== next.code) {
       const oldCode = product.code;
-      db.costElements
-        .filter((item) => item.productCode === oldCode)
-        .forEach((item) =>
-          upsert('costElements', { ...item, productCode: next.code }),
-        );
+      /* عناصر التكلفة تُحسب تلقائيًا لكل منتج؛ تحديث الروابط فقط */
       db.rawMaterials
         .filter((item) => item.productCodes.includes(oldCode))
         .forEach((item) =>
@@ -238,6 +239,16 @@ export function PassportScreen({
             ),
           }),
         );
+      (db.sprayCoatings ?? [])
+        .filter((item) => item.productCodes.includes(oldCode))
+        .forEach((item) =>
+          upsert('sprayCoatings', {
+            ...item,
+            productCodes: item.productCodes.map((code) =>
+              code === oldCode ? next.code : code,
+            ),
+          }),
+        );
     }
     if (isNew) onSelect(next.code);
     log(
@@ -253,9 +264,7 @@ export function PassportScreen({
     const code = product.code;
     const deleted = await remove('products', product.id);
     if (!deleted) return;
-    db.costElements
-      .filter((item) => item.productCode === code)
-      .forEach((item) => remove('costElements', item.id));
+    /* عناصر التكلفة محسوبة تلقائيًا — لا حذف يدوي */
     db.rawMaterials
       .filter((item) => item.productCodes.includes(code))
       .forEach((item) =>
@@ -1042,6 +1051,69 @@ export function PassportScreen({
         </Card>
       ) : null}
 
+      {canViewSprays ? (
+        <Card className="p-5">
+          <SectionHeading
+            title="الرش والطلاء"
+            subtitle="مواد الرش/الطلاء المطبَّقة على هذا المنتج وتكلفتها — تُحسب تلقائيًا ضمن التكلفة"
+            icon={<Paintbrush size={17} />}
+            action={
+              <Badge tone={productSprays.length ? 'brand' : 'slate'}>
+                {productSprays.length ? `${productSprays.length} مادة رش` : 'بدون رش'}
+              </Badge>
+            }
+          />
+          {productSprays.length ? (
+            <>
+              <div className="scrollbar-thin mt-4 overflow-x-auto">
+                <table className="w-full min-w-[720px] text-right text-[12px]">
+                  <thead>
+                    <tr className="bg-mist/80 text-[10px] font-bold text-slate-500">
+                      <th className="px-3 py-2.5">الكود</th>
+                      <th className="px-3 py-2.5">مادة الرش/الطلاء</th>
+                      <th className="px-3 py-2.5">النوع</th>
+                      <th className="px-3 py-2.5">اللون/التشطيب</th>
+                      <th className="px-3 py-2.5">المورد</th>
+                      {showCosts ? <th className="px-3 py-2.5">تكلفة القطعة</th> : null}
+                      <th className="px-3 py-2.5">ملاحظات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productSprays.map((item) => (
+                      <tr key={item.id} className="border-t border-slate-100">
+                        <td className="num px-3 py-2.5 font-bold text-ink">{item.code}</td>
+                        <td className="px-3 py-2.5 font-bold text-ink">{item.name}</td>
+                        <td className="px-3 py-2.5 font-medium text-ink-soft">{item.type || '—'}</td>
+                        <td className="px-3 py-2.5 font-medium text-ink-soft">{item.color || '—'}</td>
+                        <td className="px-3 py-2.5 font-medium text-slate-500">{item.supplier || '—'}</td>
+                        {showCosts ? (
+                          <td className="num px-3 py-2.5 font-bold">{money(item.costPerProduct)} ج.م</td>
+                        ) : null}
+                        <td className="px-3 py-2.5 text-[11px] font-medium text-slate-500">{item.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {showCosts ? (
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-violet-200/70 bg-violet-50/60 px-4 py-3">
+                  <span className="text-[12px] font-bold text-violet-800">إجمالي تكلفة الرش للقطعة</span>
+                  <span className="num text-lg font-black text-violet-800">{money(spraysCost)} ج.م</span>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-mist/50 px-4 py-6 text-center">
+              <Paintbrush size={22} className="mx-auto text-slate-300" />
+              <p className="mt-2 text-[12px] font-bold text-slate-500">هذا المنتج لا يُرش / لا يوجد رش مطبَّق عليه</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                تُعالَج الحالة برمجيًا تلقائيًا: عند عدم ربط أي مادة رش بالمنتج تكون تكلفة الرش = 0 ولا يُفترض وجود رش. لإضافة رش، اربط المنتج من جدول «الرش والطلاء» في مركز البيانات.
+              </p>
+            </div>
+          )}
+        </Card>
+      ) : null}
+
       {/* Journey */}
       <Card className="p-5" id="journey">
         <SectionHeading
@@ -1333,8 +1405,7 @@ export function PassportScreen({
             .
           </p>
           <p className="text-[12px] text-rose-600">
-            ستُحذف عناصر التكلفة المرتبطة، وتُزال روابط الخام والتعبئة والإكسسوارات من هذا
-            المنتج.
+            ستُزال روابط الخام والتعبئة والإكسسوارات والرش/الطلاء من هذا المنتج. (عناصر التكلفة تُحسب تلقائيًا ولا تُخزَّن كجدول مستقل.)
           </p>
           <p className="text-[11px] text-slate-400">لا يمكن التراجع عن هذه العملية.</p>
         </div>

@@ -26,7 +26,7 @@ import {
 import { useData, makeId } from '../lib/db';
 import { downloadTemplate, exportCsv, exportExcel, readSheet } from '../lib/io';
 import { fileStamp, fmt, money } from '../lib/format';
-import { totalOf } from '../lib/cost';
+
 import type { TableKey, TableMap } from '../types';
 
 type RowRecord = Record<string, string | number | string[] | undefined>;
@@ -209,14 +209,7 @@ export function DataStudioScreen({
     const id = String(deleteTarget.id);
     const deleted = await remove(active.key, id);
     if (!deleted) return;
-    if (active.key === 'products') {
-      const linked = db.costElements.filter(
-        (row) => row.productCode === String(deleteTarget.code),
-      );
-      for (const row of linked) {
-        await remove('costElements', row.id);
-      }
-    }
+    /* عناصر التكلفة محسوبة تلقائيًا لكل منتج */
     log(
       'حذف سجل',
       `${active.label} — ${String(deleteTarget[active.primaryKey] ?? deleteTarget.id)}`,
@@ -228,9 +221,7 @@ export function DataStudioScreen({
   const exportRows = () => {
     const columns = [
       ...active.fields.map((field) => ({ key: field.key, label: field.label })),
-      ...(active.key === 'costElements'
-        ? [{ key: '__total', label: 'إجمالي التكلفة التقديرية' }]
-        : []),
+      
     ];
     const data = displayRows.map((row) => {
       const mapped: Record<string, string | number> = {};
@@ -238,11 +229,7 @@ export function DataStudioScreen({
         const value = row[field.key];
         mapped[field.label] = Array.isArray(value) ? value.join(', ') : value ?? '';
       });
-      if (active.key === 'costElements') {
-        mapped['إجمالي التكلفة التقديرية'] = money(
-          totalOf(row as unknown as TableMap['costElements']),
-        );
-      }
+      
       return mapped;
     });
     return { columns, data };
@@ -534,9 +521,7 @@ export function DataStudioScreen({
                       </button>
                     </th>
                   ))}
-                  {active.key === 'costElements' ? (
-                    <th className="whitespace-nowrap px-4 py-3">إجمالي التكلفة</th>
-                  ) : null}
+                  
                   <th className="whitespace-nowrap px-4 py-3">إجراءات</th>
                 </tr>
               </thead>
@@ -554,13 +539,6 @@ export function DataStudioScreen({
                         {renderCell(row, field)}
                       </td>
                     ))}
-                    {active.key === 'costElements' ? (
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <span className="num tnum rounded-lg bg-brand-soft px-2 py-1 font-extrabold text-brand-dark">
-                          {money(totalOf(row as unknown as TableMap['costElements']))} ج.م
-                        </span>
-                      </td>
-                    ) : null}
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="flex items-center gap-1">
                         {canDo('edit') ? (
@@ -713,20 +691,6 @@ export function DataStudioScreen({
             );
           })}
         </div>
-
-        {active.key === 'costElements' ? (
-          <div className="mt-5 flex items-center justify-between rounded-xl border border-brand/15 bg-brand-soft/60 px-4 py-3">
-            <span className="text-[12px] font-bold text-brand-dark">إجمالي التكلفة التقديرية</span>
-            <span className="num tnum text-lg font-black text-brand-dark">
-              {money(
-                active.fields
-                  .filter((field) => field.type === 'number')
-                  .reduce((sum, field) => sum + toNumber(form[field.key]), 0),
-              )}{' '}
-              ج.م
-            </span>
-          </div>
-        ) : null}
       </Modal>
 
       <Modal

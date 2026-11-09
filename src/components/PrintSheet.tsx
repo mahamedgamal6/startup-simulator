@@ -10,9 +10,9 @@ import {
   containerLoads,
   discCostOf,
   economicsOf,
-  findCostForProduct,
   findPackagingForProduct,
   findRawForProduct,
+  findSpraysForProduct,
 } from '../lib/cost';
 import { buildJourney, cycleSeconds, formatCycle, STAGE_GROUPS } from '../lib/journey';
 import { QUALITY_CHECKS } from '../data/quality';
@@ -88,8 +88,8 @@ export function PrintSheet({
   const accessories = db.accessories.filter((item) =>
     item.productCodes.includes(product.code),
   );
-  const cost = findCostForProduct(db, product.code);
-  const econ = economicsOf(cost, db.settings.aluminumFactor, db.settings.marginPct);
+  const sprays = findSpraysForProduct(db, product.code);
+  const econ = economicsOf(db, product.code, db.settings.aluminumFactor, db.settings.marginPct);
   const stages = buildJourney(product, db.machinery, db.molds);
   const cycle = cycleSeconds(stages);
   const isCost = payload.mode === 'cost';
@@ -104,6 +104,7 @@ export function PrintSheet({
     0,
   );
   const packagingCost = packaging.reduce((sum, item) => sum + item.unitCost, 0);
+  const spraysCost = sprays.reduce((sum, item) => sum + item.costPerProduct, 0);
   const cartonGrossWeight = product.grossWeightKg * product.pcsPerCarton;
 
   const printStyle = {
@@ -365,6 +366,63 @@ export function PrintSheet({
                     إجمالي تكلفة الإكسسوارات للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(accessoriesCost)} ج.م</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </section>
+
+        {/* Spray / coating */}
+        <section className="mt-4 print-break">
+          <h4 className={sectionTitle}>
+            الرش والطلاء{' '}
+            <span className="num text-[9px] font-bold text-slate-400">
+              ({sprays.length ? `${sprays.length} مادة` : 'بدون رش'})
+            </span>
+          </h4>
+          <table className="w-full border-collapse text-[8.5px]">
+            <thead>
+              <tr>
+                <th className={headCell}>#</th>
+                <th className={headCell}>الكود</th>
+                <th className={headCell}>مادة الرش/الطلاء</th>
+                <th className={headCell}>النوع</th>
+                <th className={headCell}>اللون/التشطيب</th>
+                <th className={headCell}>المورد</th>
+                {isCost ? <th className={headCell}>تكلفة القطعة</th> : null}
+                <th className={headCell}>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sprays.length ? (
+                sprays.map((item, index) => (
+                  <tr key={item.id}>
+                    <td className={`${bodyCell} num text-slate-400`}>{index + 1}</td>
+                    <td className={`${bodyCell} num font-bold`}>{item.code}</td>
+                    <td className={`${bodyCell} font-bold`}>{item.name}</td>
+                    <td className={bodyCell}>{item.type || '—'}</td>
+                    <td className={bodyCell}>{item.color || '—'}</td>
+                    <td className={bodyCell}>{item.supplier || '—'}</td>
+                    {isCost ? (
+                      <td className={`${bodyCell} num font-extrabold`}>{money(item.costPerProduct)} ج.م</td>
+                    ) : null}
+                    <td className={`${bodyCell} text-[7.5px]`}>{item.notes || '—'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 7}>
+                    هذا المنتج لا يُرش — لا توجد مواد رش/طلاء مرتبطة به، وتُحتسب تكلفة الرش تلقائيًا = 0.
+                  </td>
+                </tr>
+              )}
+              {isCost && sprays.length ? (
+                <tr className="bg-slate-100">
+                  <td className={`${bodyCell} font-black`} colSpan={6}>
+                    إجمالي تكلفة الرش والطلاء للقطعة الواحدة
+                  </td>
+                  <td className={`${bodyCell} num font-black`}>{money(spraysCost)} ج.م</td>
+                  <td className={bodyCell} />
                 </tr>
               ) : null}
             </tbody>
