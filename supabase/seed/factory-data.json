@@ -1,0 +1,485 @@
+{
+  "products": [
+    {
+      "id": "prd-01020020",
+      "code": "01020020",
+      "name": "حلة شاورمة باور الزنوكي",
+      "family": "باور",
+      "sizeCm": 20,
+      "heightCm": 8,
+      "capacityL": 1,
+      "netWeightKg": 0.443,
+      "grossWeightKg": 0.692,
+      "cbm": 0.04,
+      "pcsPerCarton": 8,
+      "barcode": "6222042000839"
+    },
+    {
+      "id": "prd-01020024",
+      "code": "01020024",
+      "name": "حلة شاورمة باور الزنوكي",
+      "family": "باور",
+      "sizeCm": 24,
+      "heightCm": 9,
+      "capacityL": 2,
+      "netWeightKg": 0.65,
+      "grossWeightKg": 0.753,
+      "cbm": 0.06,
+      "pcsPerCarton": 12,
+      "barcode": "6222042000686"
+    },
+    {
+      "id": "prd-04010020",
+      "code": "04010020",
+      "name": "حلة باور بلس ألومنيوم",
+      "family": "باور بلس",
+      "sizeCm": 20,
+      "heightCm": 11.1,
+      "capacityL": 3,
+      "netWeightKg": 1.038,
+      "grossWeightKg": 1.071,
+      "cbm": 0.12,
+      "pcsPerCarton": 10,
+      "barcode": "6222042000747"
+    },
+    {
+      "id": "prd-05020028",
+      "code": "05020028",
+      "name": "صينية فرن سوبر مدورة",
+      "family": "صينية فرن",
+      "sizeCm": 28,
+      "heightCm": 7.2,
+      "capacityL": 3,
+      "netWeightKg": 0.591,
+      "grossWeightKg": 0.622,
+      "cbm": 0.05,
+      "pcsPerCarton": 7,
+      "barcode": "6222042001515"
+    },
+    {
+      "id": "prd-06030022",
+      "code": "06030022",
+      "name": "حلة كراون تيتانيوم",
+      "family": "كراون تيتانيوم",
+      "sizeCm": 22,
+      "heightCm": 11.5,
+      "capacityL": 4,
+      "netWeightKg": 1.12,
+      "grossWeightKg": 1.185,
+      "cbm": 0.07,
+      "pcsPerCarton": 8,
+      "barcode": "6222042002261"
+    },
+    {
+      "id": "prd-07010026",
+      "code": "07010026",
+      "name": "حلة إيلورا جرانيت",
+      "family": "إيلورا جرانيت",
+      "sizeCm": 26,
+      "heightCm": 12.5,
+      "capacityL": 6,
+      "netWeightKg": 1.42,
+      "grossWeightKg": 1.495,
+      "cbm": 0.1,
+      "pcsPerCarton": 6,
+      "barcode": "6222042003113"
+    },
+    {
+      "id": "prd-03020024",
+      "code": "03020024",
+      "name": "طاسة برايم استانلس",
+      "family": "برايم استانلس",
+      "sizeCm": 24,
+      "heightCm": 6.5,
+      "capacityL": 2.5,
+      "netWeightKg": 0.72,
+      "grossWeightKg": 0.775,
+      "cbm": 0.05,
+      "pcsPerCarton": 10,
+      "barcode": "6222042001959"
+    }
+  ],
+  "rawMaterials": [
+    {
+      "id": "raw-RAW-1050-34",
+      "code": "RAW-1050-34",
+      "name": "قرص حلة شاورمة 20",
+      "alloy": "سبيكة 1050 نقية",
+      "diameterCm": 34,
+      "thicknessMm": 2.5,
+      "discWeightKg": 0.735,
+      "wastePct": 14,
+      "pricePerKg": 195,
+      "productCodes": [
+        "01020020"
+      ]
+    },
+    {
+      "id": "raw-RAW-1050-41",
+      "code": "RAW-1050-41",
+      "name": "قرص حلة شاورمة 24",
+      "alloy": "سبيكة 1050 نقية",
+      "diameterCm": 41,
+      "thicknessMm": 3,
+      "discWeightKg": 1.068,
+      "wastePct": 12,
+      "pricePerKg": 195,
+      "productCodes": [
+        "01020024"
+      ]
+    },
+    {
+      "id": "raw-RAW-1050-38",
+      "code": "RAW-1050-38",
+      "name": "قرص صينية سوبر 28",
+      "alloy": "سبيكة 1050 نقية",
+      "diameterCm": 38,
+      "thicknessMm": 2,
+      "discWeightKg": 0.612,
+      "wastePct": 8,
+      "pricePerKg": 195,
+      "productCodes": [
+        "05020028"
+      ]
+    },
+    {
+      "id": "raw-RAW-1100-36",
+      "code": "RAW-1100-36",
+      "name": "قرص باور بلس 20",
+      "alloy": "سبيكة 1100 صناعية",
+      "diameterCm": 36,
+      "thicknessMm": 2.6,
+      "discWeightKg": 0.98,
+      "wastePct": 12,
+      "pricePerKg": 195,
+      "productCodes": [
+        "04010020"
+      ]
+    },
+    {
+      "id": "raw-RAW-3003-36",
+      "code": "RAW-3003-36",
+      "name": "قرص كراون تيتانيوم 22",
+      "alloy": "سبيكة 3003 مقواة",
+      "diameterCm": 36,
+      "thicknessMm": 2.8,
+      "discWeightKg": 0.96,
+      "wastePct": 11,
+      "pricePerKg": 205,
+      "productCodes": [
+        "06030022"
+      ]
+    },
+    {
+      "id": "raw-RAW-3003-40",
+      "code": "RAW-3003-40",
+      "name": "قرص إيلورا جرانيت 26",
+      "alloy": "سبيكة 3003 مقواة",
+      "diameterCm": 40,
+      "thicknessMm": 3.2,
+      "discWeightKg": 1.31,
+      "wastePct": 10,
+      "pricePerKg": 215,
+      "productCodes": [
+        "07010026"
+      ]
+    },
+    {
+      "id": "raw-RAW-1100-40",
+      "code": "RAW-1100-40",
+      "name": "قرص برايم استانلس 24",
+      "alloy": "سبيكة 1100 صناعية",
+      "diameterCm": 40,
+      "thicknessMm": 2.4,
+      "discWeightKg": 0.86,
+      "wastePct": 9,
+      "pricePerKg": 210,
+      "productCodes": [
+        "03020024"
+      ]
+    }
+  ],
+  "accessories": [
+    {
+      "id": "acc-ACC-01",
+      "code": "ACC-01",
+      "name": "مقبض جانبي استانلس ستيل مقاوم للحرارة",
+      "material": "استانلس 304",
+      "qtyPerProduct": 2,
+      "unitCost": 14.5,
+      "origin": "تصنيع محلي",
+      "productCodes": [
+        "01020020",
+        "01020024",
+        "04010020",
+        "06030022",
+        "07010026",
+        "03020024"
+      ]
+    },
+    {
+      "id": "acc-ACC-02",
+      "code": "ACC-02",
+      "name": "مقبض غطاء علوي (بزلومة كريستال / بيكالايت)",
+      "material": "بيكالايت عازل",
+      "qtyPerProduct": 1,
+      "unitCost": 8.2,
+      "origin": "محلي",
+      "productCodes": [
+        "01020020",
+        "01020024",
+        "04010020",
+        "06030022",
+        "07010026",
+        "03020024"
+      ]
+    },
+    {
+      "id": "acc-ACC-03",
+      "code": "ACC-03",
+      "name": "طقم مسامير وبرشام تثبيت المقابض",
+      "material": "ألومنيوم مقوى",
+      "qtyPerProduct": 4,
+      "unitCost": 2.5,
+      "origin": "محلي",
+      "productCodes": [
+        "01020020",
+        "01020024",
+        "04010020",
+        "05020028",
+        "06030022",
+        "07010026",
+        "03020024"
+      ]
+    },
+    {
+      "id": "acc-ACC-04",
+      "code": "ACC-04",
+      "name": "غطاء زجاج مقوى مقاس 24",
+      "material": "زجاج تيمبرد",
+      "qtyPerProduct": 1,
+      "unitCost": 22,
+      "origin": "مستورد - تركيا",
+      "productCodes": [
+        "01020024",
+        "03020024"
+      ]
+    },
+    {
+      "id": "acc-ACC-05",
+      "code": "ACC-05",
+      "name": "حلقة سيليكون عازلة للغطاء",
+      "material": "سيليكون غذائي",
+      "qtyPerProduct": 1,
+      "unitCost": 6.75,
+      "origin": "مستورد",
+      "productCodes": [
+        "01020024",
+        "03020024",
+        "04010020"
+      ]
+    },
+    {
+      "id": "acc-ACC-06",
+      "code": "ACC-06",
+      "name": "مقبض جرانيت مقاوم للحرارة",
+      "material": "بيكاليت جرانيت",
+      "qtyPerProduct": 2,
+      "unitCost": 18.9,
+      "origin": "محلي",
+      "productCodes": [
+        "07010026"
+      ]
+    }
+  ],
+  "packaging": [
+    {
+      "id": "pkg-BOX-S20",
+      "code": "BOX-S20",
+      "name": "كرتونة رئيسية ماستر (شاورمة 20)",
+      "lengthCm": 45,
+      "widthCm": 45,
+      "heightCm": 35,
+      "emptyWeightKg": 0.85,
+      "unitCost": 12.13,
+      "pcsInside": 8,
+      "productCodes": [
+        "01020020"
+      ]
+    },
+    {
+      "id": "pkg-BAG-P20",
+      "code": "BAG-P20",
+      "name": "أكياس بوليثيلين واقية ومطبوعة + تكت باركود",
+      "lengthCm": 32,
+      "widthCm": 32,
+      "heightCm": 2,
+      "emptyWeightKg": 0.02,
+      "unitCost": 1.5,
+      "pcsInside": 1,
+      "productCodes": [
+        "01020020"
+      ]
+    },
+    {
+      "id": "pkg-BOX-S24",
+      "code": "BOX-S24",
+      "name": "كرتونة ماستر شاورمة 24",
+      "lengthCm": 48,
+      "widthCm": 48,
+      "heightCm": 38,
+      "emptyWeightKg": 0.95,
+      "unitCost": 14.5,
+      "pcsInside": 12,
+      "productCodes": [
+        "01020024"
+      ]
+    },
+    {
+      "id": "pkg-BOX-B20",
+      "code": "BOX-B20",
+      "name": "كرتونة ماستر باور بلس 20",
+      "lengthCm": 52,
+      "widthCm": 52,
+      "heightCm": 42,
+      "emptyWeightKg": 1.1,
+      "unitCost": 15.2,
+      "pcsInside": 10,
+      "productCodes": [
+        "04010020"
+      ]
+    },
+    {
+      "id": "pkg-BOX-T28",
+      "code": "BOX-T28",
+      "name": "كرتونة صينية سوبر 28",
+      "lengthCm": 40,
+      "widthCm": 40,
+      "heightCm": 26,
+      "emptyWeightKg": 0.7,
+      "unitCost": 10.5,
+      "pcsInside": 7,
+      "productCodes": [
+        "05020028"
+      ]
+    },
+    {
+      "id": "pkg-BOX-C22",
+      "code": "BOX-C22",
+      "name": "كرتونة ماستر كراون 22",
+      "lengthCm": 46,
+      "widthCm": 46,
+      "heightCm": 34,
+      "emptyWeightKg": 0.9,
+      "unitCost": 13.8,
+      "pcsInside": 8,
+      "productCodes": [
+        "06030022"
+      ]
+    },
+    {
+      "id": "pkg-BOX-G26",
+      "code": "BOX-G26",
+      "name": "كرتونة ماستر إيلورا جرانيت 26",
+      "lengthCm": 52,
+      "widthCm": 52,
+      "heightCm": 40,
+      "emptyWeightKg": 1.15,
+      "unitCost": 16.4,
+      "pcsInside": 6,
+      "productCodes": [
+        "07010026"
+      ]
+    },
+    {
+      "id": "pkg-BOX-P24",
+      "code": "BOX-P24",
+      "name": "كرتونة ماستر برايم 24",
+      "lengthCm": 50,
+      "widthCm": 50,
+      "heightCm": 38,
+      "emptyWeightKg": 1.05,
+      "unitCost": 11.9,
+      "pcsInside": 10,
+      "productCodes": [
+        "03020024"
+      ]
+    }
+  ],
+  "costElements": [
+    {
+      "id": "ce-01020020",
+      "productCode": "01020020",
+      "rawMaterial": 128.63,
+      "accessories": 0,
+      "plastics": 10.9,
+      "carton": 12.13,
+      "labor": 17.15,
+      "overhead": 18.5
+    },
+    {
+      "id": "ce-01020024",
+      "productCode": "01020024",
+      "rawMaterial": 165.4,
+      "accessories": 0,
+      "plastics": 12.4,
+      "carton": 14.5,
+      "labor": 19.8,
+      "overhead": 22.1
+    },
+    {
+      "id": "ce-04010020",
+      "productCode": "04010020",
+      "rawMaterial": 227.3,
+      "accessories": 43.5,
+      "plastics": 9.8,
+      "carton": 15.2,
+      "labor": 21.4,
+      "overhead": 24.8
+    },
+    {
+      "id": "ce-05020028",
+      "productCode": "05020028",
+      "rawMaterial": 128.9,
+      "accessories": 0,
+      "plastics": 8.4,
+      "carton": 10.5,
+      "labor": 14.6,
+      "overhead": 16.2
+    },
+    {
+      "id": "ce-06030022",
+      "productCode": "06030022",
+      "rawMaterial": 218.5,
+      "accessories": 47.2,
+      "plastics": 11.2,
+      "carton": 13.8,
+      "labor": 20.6,
+      "overhead": 24.7
+    },
+    {
+      "id": "ce-07010026",
+      "productCode": "07010026",
+      "rawMaterial": 309.8,
+      "accessories": 58.7,
+      "plastics": 12.6,
+      "carton": 16.4,
+      "labor": 24.2,
+      "overhead": 28.3
+    },
+    {
+      "id": "ce-03020024",
+      "productCode": "03020024",
+      "rawMaterial": 196.8,
+      "accessories": 36.5,
+      "plastics": 9.4,
+      "carton": 11.9,
+      "labor": 17.3,
+      "overhead": 19.1
+    }
+  ],
+  "settings": {
+    "marginPct": 22,
+    "aluminumFactor": 1
+  }
+}

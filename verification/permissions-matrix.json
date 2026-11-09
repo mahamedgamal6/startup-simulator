@@ -1,0 +1,434 @@
+{
+  "generatedAt": "2026-11-09T07:58:26Z",
+  "environment": {
+    "url": "https://site-6e5bcc5b5f0d4cf3a367a3e8e14e756d.freebuff.page/",
+    "siteId": "8f3d2a41-7c6b-4d2e-9f10-5a6b8c2d4e71",
+    "deployment": "published",
+    "deployedAt": "2026-11-09T07:49:33Z"
+  },
+  "method": {
+    "browser": "full cloud browser against the live deployment",
+    "server": "Supabase RPC app_login/app_session/app_list_*/app_* mutations with invalid or random inputs",
+    "accountsTested": 5,
+    "screenVisits": 30,
+    "dataTableVisits": 35,
+    "rpcAuthorizationCalls": 50,
+    "failures": 0
+  },
+  "summary": {
+    "verdict": "PASS",
+    "accountsPassed": 5,
+    "accountsFailed": 0,
+    "unauthorizedBypasses": 0
+  },
+  "accounts": [
+    {
+      "username": "admin",
+      "role": "مدير النظام",
+      "permissions": 68,
+      "wildcard": true,
+      "session": true,
+      "nav": ["لوحة القيادة", "بطاقة المنتج", "التحليل المالي", "الإنتاج والماكينات", "الجودة والتشغيل", "مركز البيانات", "المستخدمون", "الأدوار والصلاحيات", "سجل العمليات"],
+      "screens": {
+        "executive": true,
+        "passport": true,
+        "finance": true,
+        "production": true,
+        "quality": true,
+        "data": true,
+        "users": true,
+        "roles": true,
+        "audit": true,
+        "resetDemo": true
+      },
+      "controls": {
+        "passport": {
+          "cost": true,
+          "simulate": true,
+          "settingsEdit": true,
+          "productCreate": true,
+          "productEdit": true,
+          "productDelete": true,
+          "accessoryAdd": true,
+          "accessoryEdit": true,
+          "printCost": true,
+          "printTechnical": true
+        },
+        "finance": {
+          "editCosts": true,
+          "simulate": true,
+          "marginEdit": true,
+          "rangeInputs": 2
+        },
+        "production": {
+          "manageMachines": true,
+          "manageMolds": true
+        },
+        "quality": {
+          "inspect": true,
+          "reset": true,
+          "printTechnical": true
+        },
+        "users": {
+          "view": true,
+          "create": true,
+          "editButtons": 5,
+          "resetPasswordButtons": 5,
+          "deleteButtons": 4,
+          "selfDeleteHidden": true
+        },
+        "roles": {
+          "create": true,
+          "editButtons": 4,
+          "deleteButtons": 4,
+          "duplicateButtons": 5,
+          "import": true,
+          "export": true,
+          "systemRoleProtected": true
+        },
+        "audit": {
+          "view": true,
+          "export": true
+        }
+      },
+      "data": {
+        "products": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "rawMaterials": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "accessories": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "molds": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "machinery": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "packaging": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "costElements": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true}
+      },
+      "server": {
+        "app_list_users": "ALLOWED",
+        "app_list_roles": "ALLOWED",
+        "app_list_audit": "ALLOWED",
+        "app_create_user": "INVALID_NAME",
+        "app_update_user": "USER_NOT_FOUND",
+        "app_delete_user": "USER_NOT_FOUND",
+        "app_reset_password": "USER_NOT_FOUND",
+        "app_create_role": "INVALID_NAME",
+        "app_update_role": "ROLE_NOT_FOUND",
+        "app_delete_role": "ROLE_NOT_FOUND"
+      },
+      "status": "PASS"
+    },
+    {
+      "username": "finance",
+      "role": "المدير المالي",
+      "permissions": 53,
+      "wildcard": false,
+      "session": true,
+      "nav": ["لوحة القيادة", "بطاقة المنتج", "التحليل المالي", "الجودة والتشغيل", "مركز البيانات"],
+      "screens": {
+        "executive": true,
+        "passport": true,
+        "finance": true,
+        "production": false,
+        "quality": true,
+        "data": true,
+        "users": false,
+        "roles": false,
+        "audit": false,
+        "resetDemo": false
+      },
+      "controls": {
+        "passport": {
+          "cost": true,
+          "simulate": true,
+          "settingsEdit": true,
+          "productCreate": true,
+          "productEdit": true,
+          "productDelete": true,
+          "accessoryAdd": true,
+          "accessoryEdit": true,
+          "printCost": true,
+          "printTechnical": true
+        },
+        "finance": {
+          "editCosts": true,
+          "simulate": true,
+          "marginEdit": true,
+          "rangeInputs": 2
+        },
+        "quality": {
+          "inspect": false,
+          "reset": false,
+          "printTechnical": true
+        },
+        "users": {"view": false},
+        "roles": {"view": false},
+        "audit": {"view": false, "export": false}
+      },
+      "data": {
+        "products": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "rawMaterials": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "accessories": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "molds": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "machinery": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "packaging": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true},
+        "costElements": {"view": true, "create": true, "edit": true, "delete": true, "import": true, "export": true}
+      },
+      "server": {
+        "app_list_users": "FORBIDDEN",
+        "app_list_roles": "FORBIDDEN",
+        "app_list_audit": "FORBIDDEN",
+        "app_create_user": "FORBIDDEN",
+        "app_update_user": "FORBIDDEN",
+        "app_delete_user": "FORBIDDEN",
+        "app_reset_password": "FORBIDDEN",
+        "app_create_role": "FORBIDDEN",
+        "app_update_role": "FORBIDDEN",
+        "app_delete_role": "FORBIDDEN"
+      },
+      "status": "PASS"
+    },
+    {
+      "username": "exec",
+      "role": "الإدارة العليا",
+      "permissions": 19,
+      "wildcard": false,
+      "session": true,
+      "nav": ["لوحة القيادة", "بطاقة المنتج", "التحليل المالي", "الإنتاج والماكينات", "الجودة والتشغيل", "مركز البيانات", "المستخدمون", "الأدوار والصلاحيات", "سجل العمليات"],
+      "screens": {
+        "executive": true,
+        "passport": true,
+        "finance": true,
+        "production": true,
+        "quality": true,
+        "data": true,
+        "users": true,
+        "roles": true,
+        "audit": true,
+        "resetDemo": false
+      },
+      "controls": {
+        "passport": {
+          "cost": true,
+          "simulate": false,
+          "settingsEdit": false,
+          "productCreate": false,
+          "productEdit": false,
+          "productDelete": false,
+          "accessoryAdd": false,
+          "accessoryEdit": false,
+          "printCost": true,
+          "printTechnical": true
+        },
+        "finance": {
+          "editCosts": false,
+          "simulate": false,
+          "marginEdit": false,
+          "rangeInputs": 0
+        },
+        "production": {
+          "manageMachinesNavigation": true,
+          "manageMoldsNavigation": true,
+          "readOnlyAfterNavigation": true
+        },
+        "quality": {
+          "inspect": false,
+          "reset": false,
+          "printTechnical": true
+        },
+        "users": {
+          "view": true,
+          "create": false,
+          "editButtons": 0,
+          "resetPasswordButtons": 0,
+          "deleteButtons": 0
+        },
+        "roles": {
+          "view": true,
+          "create": false,
+          "editButtons": 0,
+          "deleteButtons": 0,
+          "duplicateButtons": 0,
+          "import": false,
+          "export": true
+        },
+        "audit": {
+          "view": true,
+          "export": true
+        }
+      },
+      "data": {
+        "products": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "rawMaterials": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "accessories": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "molds": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "machinery": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "packaging": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "costElements": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false}
+      },
+      "server": {
+        "app_list_users": "ALLOWED",
+        "app_list_roles": "ALLOWED",
+        "app_list_audit": "ALLOWED",
+        "app_create_user": "FORBIDDEN",
+        "app_update_user": "FORBIDDEN",
+        "app_delete_user": "FORBIDDEN",
+        "app_reset_password": "FORBIDDEN",
+        "app_create_role": "FORBIDDEN",
+        "app_update_role": "FORBIDDEN",
+        "app_delete_role": "FORBIDDEN"
+      },
+      "status": "PASS"
+    },
+    {
+      "username": "production",
+      "role": "مدير الإنتاج",
+      "permissions": 14,
+      "wildcard": false,
+      "session": true,
+      "nav": ["بطاقة المنتج", "الإنتاج والماكينات", "الجودة والتشغيل", "مركز البيانات"],
+      "screens": {
+        "executive": false,
+        "passport": true,
+        "finance": false,
+        "production": true,
+        "quality": true,
+        "data": true,
+        "users": false,
+        "roles": false,
+        "audit": false,
+        "resetDemo": false
+      },
+      "controls": {
+        "passport": {
+          "cost": false,
+          "simulate": false,
+          "settingsEdit": false,
+          "productCreate": false,
+          "productEdit": false,
+          "productDelete": false,
+          "accessoryAdd": false,
+          "accessoryEdit": false,
+          "printCost": false,
+          "printTechnical": true
+        },
+        "production": {
+          "manageMachines": true,
+          "manageMolds": true
+        },
+        "quality": {
+          "inspect": false,
+          "reset": false,
+          "printTechnical": true
+        },
+        "users": {"view": false},
+        "roles": {"view": false},
+        "audit": {"view": false, "export": false}
+      },
+      "data": {
+        "products": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "rawMaterials": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "accessories": {"view": false, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "molds": {"view": true, "create": true, "edit": true, "delete": false, "import": false, "export": false},
+        "machinery": {"view": true, "create": true, "edit": true, "delete": false, "import": true, "export": false},
+        "packaging": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "costElements": {"view": false, "create": false, "edit": false, "delete": false, "import": false, "export": false}
+      },
+      "server": {
+        "app_list_users": "FORBIDDEN",
+        "app_list_roles": "FORBIDDEN",
+        "app_list_audit": "FORBIDDEN",
+        "app_create_user": "FORBIDDEN",
+        "app_update_user": "FORBIDDEN",
+        "app_delete_user": "FORBIDDEN",
+        "app_reset_password": "FORBIDDEN",
+        "app_create_role": "FORBIDDEN",
+        "app_update_role": "FORBIDDEN",
+        "app_delete_role": "FORBIDDEN"
+      },
+      "status": "PASS"
+    },
+    {
+      "username": "quality",
+      "role": "مشرف الجودة",
+      "permissions": 9,
+      "wildcard": false,
+      "session": true,
+      "nav": ["بطاقة المنتج", "الجودة والتشغيل", "مركز البيانات"],
+      "screens": {
+        "executive": false,
+        "passport": true,
+        "finance": false,
+        "production": false,
+        "quality": true,
+        "data": true,
+        "users": false,
+        "roles": false,
+        "audit": false,
+        "resetDemo": false
+      },
+      "controls": {
+        "passport": {
+          "cost": false,
+          "simulate": false,
+          "settingsEdit": false,
+          "productCreate": false,
+          "productEdit": false,
+          "productDelete": false,
+          "accessoryAdd": false,
+          "accessoryEdit": false,
+          "printCost": false,
+          "printTechnical": true
+        },
+        "quality": {
+          "inspect": true,
+          "reset": true,
+          "printTechnical": true,
+          "inspectionButtons": 8
+        },
+        "users": {"view": false},
+        "roles": {"view": false},
+        "audit": {"view": false, "export": false}
+      },
+      "data": {
+        "products": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "rawMaterials": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "accessories": {"view": false, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "molds": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "machinery": {"view": false, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "packaging": {"view": true, "create": false, "edit": false, "delete": false, "import": false, "export": false},
+        "costElements": {"view": false, "create": false, "edit": false, "delete": false, "import": false, "export": false}
+      },
+      "server": {
+        "app_list_users": "FORBIDDEN",
+        "app_list_roles": "FORBIDDEN",
+        "app_list_audit": "FORBIDDEN",
+        "app_create_user": "FORBIDDEN",
+        "app_update_user": "FORBIDDEN",
+        "app_delete_user": "FORBIDDEN",
+        "app_reset_password": "FORBIDDEN",
+        "app_create_role": "FORBIDDEN",
+        "app_update_role": "FORBIDDEN",
+        "app_delete_role": "FORBIDDEN"
+      },
+      "status": "PASS"
+    }
+  ],
+  "observations": [
+    {
+      "severity": "UX",
+      "account": "exec",
+      "finding": "أزرار إدارة الماكينات والإسطمبات ظاهرة لأن بوابتها data.*.view، لكنها تفتح مركز البيانات بوضع عرض فقط بلا أي إجراء كتابة.",
+      "securityImpact": "none",
+      "recommendation": "تسميتها عرض الماكينات/الإسطمبات أو ربطها بصلاحية create/edit."
+    },
+    {
+      "severity": "INFO",
+      "account": "admin",
+      "finding": "حذف الحساب الحالي محجوب، والدور النظامي محمي من التعديل والحذف.",
+      "securityImpact": "positive"
+    }
+  ],
+  "caveats": [
+    "بيانات المصنع المحلية في localStorage وصلاحياتها مفروضة في الواجهة فقط، وليست حماية خادمية.",
+    "صلاحيات المستخدمين والأدوار وسجل العمليات مفروضة خادميًا عبر RPC.",
+    "لم يُجرَ اختبار اختراق أو مراجعة أمنية لكلمات المرور والجلسات.",
+    "لم تُعدّل الشاشات أو الصلاحيات أثناء الاختبار؛ التغيير الوحيد هو ملفات الأدلة."
+  ]
+}
