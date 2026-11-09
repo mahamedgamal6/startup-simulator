@@ -40,8 +40,10 @@
 ```bash
 git clone https://github.com/mahamedgamal6/startup-simulator.git
 cd startup-simulator
-npm install
+npm ci
 ```
+
+يستخدم `npm ci` ملف `package-lock.json` لتثبيت نسخ الحزم المطابقة تمامًا (يمكن استخدام `npm install` بدلًا منه إذا عدّلت الحزم).
 
 أنشئ ملف `.env.local` في جذر المشروع:
 
@@ -80,6 +82,18 @@ npm run dev
 | `npm run preview` | معاينة نسخة الإنتاج محليًا |
 
 دليل تفصيلي للنسخة المحلية موجود في [README-LOCAL.md](README-LOCAL.md).
+
+### تحقق سريع من النسخة المحلية
+
+تم اختبار الخطوات التالية فعليًا من نسخة نظيفة بلا `node_modules`:
+
+```bash
+npm ci          # تثبيت مطابق لملف القفل
+npm run build   # فحص TypeScript ثم بناء dist
+npm run dev     # يخدم التطبيق على http://localhost:5173
+```
+
+يجب أن ينتهي البناء برسالة `built`، وأن يظهر في المتصفح عنوان `http://localhost:5173`. إذا لم يوجد `.env.local` فسيفتح التطبيق لكنه لن يستطيع الاتصال بـ Supabase.
 
 ## إعداد قاعدة البيانات
 
