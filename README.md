@@ -1,166 +1,150 @@
-# STARTUP SIMULATOR
-## Like lemonade stand but way more advanced.
+# مصانع الزنوكي — نظام التكاليف الصناعية وبطاقة المنتج الرقمية
 
-What you need....
-Run 
-```bundle install```
-then
-```ruby run.rb```
+تطبيق ويب عربي (RTL) لإدارة تكاليف الإنتاج في مصانع الزنوكي للأواني المنزلية، يربط بطاقة المنتج الرقمية بالخامات والإكسسوارات والتعبئة ومراحل التشغيل والماكينات والإسطمبات ونتائج الجودة، ويحسب التكلفة والهامش لكل منتج.
 
-Thats it!
+- **الإصدار:** 1.5
+- **النسخة المنشورة:** https://site-6e5bcc5b5f0d4cf3a367a3e8e14e756d.freebuff.page
 
-Thanks for taking a look at Startup Simulator and the Tiny Game Engine (TGE). 
-Tiny Game Engine is a UI and game design system created to make building games
-in the command line easy!!! I encourage you to fork and use the Tiny Game Engine
-and try to build your own games! 
+## المزايا
 
-Create by Andrew Richards - github: arichards4814
+| الشاشة | الوظيفة |
+| --- | --- |
+| لوحة القيادة | مؤشرات الأداء والربحية ومقارنة المنتجات وتصدير التقارير |
+| بطاقة المنتج | بطاقة رقمية لكل منتج: الصور، الخامات، الإكسسوارات، التعبئة، مراحل التشغيل، التكلفة والهامش، وطباعة البطاقة |
+| التحليل المالي | تفصيل عناصر التكلفة، الهوامش، ومحاكي أسعار الخام |
+| الإنتاج والماكينات | خطوط الإنتاج والماكينات والإسطمبات وأزمنة التشغيل وقطع الغيار |
+| الجودة والتشغيل | البطاقة الفنية وخطة الفحص ونتائج الفحوصات |
+| مركز البيانات | إدارة الجداول والاستيراد والتصدير (Excel) والنسخ الاحتياطي |
+| المستخدمون | إنشاء الحسابات وتعديلها وكلمات المرور |
+| الأدوار والصلاحيات | مصفوفة صلاحيات تفصيلية لكل دور |
+| سجل العمليات | تتبّع كل إجراء على المنصة |
 
-# PLAYING STARTUP SIMULATOR
+من مزايا التطبيق أيضًا: معاينة مكبّرة للصور، رفع/حذف صور المنتجات والإكسسوارات، دعم كامل للعربية وRTL، وطباعة بطاقات المنتج.
 
-To play the game simply use 'ruby run.rb' and that's it!!!!
+## التقنيات
 
-The object of the game is to raise money, build your business, hire employees, create products and so on. There are many things to worry about... to check them visit the view company panel. There you will see your average employee morale, product strength etc. Make sure to keep improving on these things. 
+- React 18 + TypeScript
+- Vite 5
+- Tailwind CSS 3
+- Supabase (PostgreSQL + RPC) للمزامنة بين الأجهزة
+- Lucide React للأيقونات، وSheetJS (xlsx) للاستيراد والتصدير
 
-BE CAREFUL! If you start building products that your team can't handle they will lose morale!
+## المتطلبات
 
-As you move through the game you will see menu items that are not unlocked yet shown as '[2] ??????????'. These are in the game! You just have to improve your companies recognition and the amount of employees you have to see these!
+- Node.js 20 LTS (أو 18+)
+- npm
+- مشروع Supabase (اختياري للتشغيل المحلي إذا استخدمت نفس قاعدة البيانات الحالية)
 
-A few commands when you are in the menus:
-[back] - type back and press enter/return to return to the previous menu
-[help] - type back and press enter/return to view the help menu
-[quit] - type quit and press enter/return to quit the game completely
+## التشغيل المحلي
 
-
-# USING THE TINY GAME ENGINE:
-
-The Tiny Game Engine was created as a way for Ruby developers to build games in the command line and not have to worry too much about menus.
-
-## Building your menus with the UI class
-
-In order to use menus, follow these steps:
-
-1. Initialize a menu, usually I call my first menu 'main menu'. I'm so original.
-2. Set the menu items, has_border, border_type, and 
-3. Set the parent_menu... this will be the menu that your player is brought to when he types 'back'
-    - important note! Your first menu should have itself as the parent menu... otherwise the game will break.
-
-Take a look at my example here:
-
-```
-    main_menu_ui = UI.new("main_menu_ui")
-    main_menu_ui.menu_items = ["[1] - Try to Raise Capital  ", "[2] - Hire Employees        ", "[3] - Build/Improve Products",
-                            "[4] - View Company", "[5] - View Employees", "[6] - View Products"]
-    main_menu_ui.header = "                               MAIN MENU - Week: #{week}"
-    main_menu_ui.body = "            #{our_startup.name}\n Funds: $#{our_startup.funds} Employees: #{our_startup.employees.count} Products: #{our_startup.products.count}"
-    main_menu_ui.has_border = true
-    main_menu_ui.border_type = "dash-lg"
-    main_menu_ui.has_divider = true
-    main_menu_ui.parent_menu = main_menu_ui
+```bash
+git clone https://github.com/mahamedgamal6/startup-simulator.git
+cd startup-simulator
+npm install
 ```
 
-![The menu above when calling main_menu_ui.prompt ](https://github.com/arichards4814/startup-simulator/blob/master/images/SUS_Screen.png)
+أنشئ ملف `.env.local` في جذر المشروع:
 
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
 
-## Here is the current high score... BEAT IT!
-![Miles](https://github.com/arichards4814/startup-simulator/blob/master/images/miles_screenshot.png)
+ثم شغّل:
 
+```bash
+npm run dev
+```
 
+وافتح: http://localhost:5173
 
-4. Once you initialize all of your menus, it's time to set your logic!!! To do so, in your file create a new area (after initializing all of your menus) to set all of your menu logic. 
-    - use the .set_logic instance method to store the methods you want to run when that menu item is chosen. for example you would store 'main_menu.method(:prompt)' if you want that item to go back to the main menu. The .prompt method on a UI object will always prompt the menu and ask for input.
+> لا تضع مفتاح `service_role` في ملفات الواجهة أو في `.env.local`؛ استخدم المفتاح العام `anon` فقط.
 
-5. Once you have set up your logic, test your logic by calling main_menu.prompt and watch the magic happen!
+### حسابات تجريبية
 
+| المستخدم | كلمة المرور | الدور |
+| --- | --- | --- |
+| `admin` | `admin123` | مدير النظام |
+| `finance` | `finance123` | المدير المالي |
+| `exec` | `exec123` | الإدارة العليا |
+| `production` | `production123` | مدير الإنتاج |
+| `quality` | `quality123` | مشرف الجودة |
 
+### الأوامر
 
-## Using GameEvent and GameTrigger
+| الأمر | الوظيفة |
+| --- | --- |
+| `npm run dev` | خادم التطوير على المنفذ 5173 |
+| `npm run typecheck` | فحص أنواع TypeScript |
+| `npm run build` | فحص الأنواع ثم بناء نسخة الإنتاج في `dist` |
+| `npm run preview` | معاينة نسخة الإنتاج محليًا |
 
+دليل تفصيلي للنسخة المحلية موجود في [README-LOCAL.md](README-LOCAL.md).
 
-I will be updating this section very soon! Keep your eye out!
+## إعداد قاعدة البيانات
 
+يستخدم التطبيق مخطط `elzonki` داخل Supabase، وتُطبَّق التغييرات عبر ملفات SQL مرتبة في `supabase/migrations`:
 
+1. `20261109_factory_sync_tables.sql` — جداول المنتجات والخامات والإكسسوارات والتعبئة وعناصر التكلفة والإعدادات.
+2. `20261109_factory_sync_machines_molds_inspections.sql` — الماكينات والإسطمبات ونتائج الفحص والمزامنة.
+3. `20261109_factory_sync_rpcs.sql` — دوال القراءة والكتابة والتحقق من الجلسات والصلاحيات.
+4. `20261109_factory_media_parts_stages.sql` — صور الكيانات وقطع الغيار ومراحل التشغيل.
 
+طبّقها بالترتيب من **SQL Editor** في لوحة Supabase، أو باستخدام Supabase CLI:
 
-### Pass the current strings as a parameter in #border_type to create that border. #has_border must be set to true for border to show
-* border types - dash-sm, dash-md, dash-lg, line-sm, line-md, line-lg, carrot-sm, carrot-md, carrot-lg, squiggles-sm, squiggles-md,squiggles-lg, equals-md
+```bash
+supabase link --project-ref <project-ref>
+supabase db push
+```
 
-### Try using these class methods to puts out a title card: 
-* UI.billboard(string)
-* UI.announce(string)
+يتوفر `supabase/seed/factory-data.json` كبيانات تجريبية مرجعية للمنتجات والخامات والإكسسوارات، ويمكن استيراد الجداول من شاشة **مركز البيانات** بصيغ CSV أو Excel.
 
-### To simply ask for enter, use the '.ask_for_enter' class method
-* UI.ask_for_enter
+**ملاحظات أمنية:**
 
-### To ask a question and return its response, use '.simple_question' class method
-* UI.simple_question(string)
+- تفعيل RLS على جداول البيانات، والقراءة والكتابة تمر عبر دوال RPC تتحقق من صلاحيات الدور.
+- الصور تُخزَّن كـ Data URLs في جدول `elzonki.images` عبر دوال مخصصة.
+- مفتاح `anon` عام بطبيعته ويُضمَّن في الواجهة، لذلك الحماية الفعلية تعتمد على صلاحيات RPC وRLS.
 
-### to add space use the '.blank_space' class method passing a number of blank lines as a parameter
-* UI.blank_space(integer)
+## النشر
 
+1. ابنِ النسخة الإنتاجية:
 
+```bash
+npm run build
+```
 
+2. انشر محتوى مجلد `dist` على أي استضافة ملفات ثابتة مع **SPA fallback** (إعادة التوجيه إلى `index.html`).
+3. هذا المستودع مهيأ للنشر عبر Freebuff Sites من خلال `sites.manifest.json` و`deploy/worker.js` (يخدم ملفات `dist` مع دعم SPA).
+4. أضف متغيري البيئة `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` في إعدادات الاستضافة قبل البناء.
 
+## البنية
 
+```
+src/
+  auth/          الجلسات والأدوار والصلاحيات
+  components/    المكوّنات المشتركة (Shell، الصور، النماذج، الطباعة)
+  data/          البيانات الافتراضية والصور وأدوات الجودة
+  lib/           Supabase والمزامنة والتكاليف والتصدير
+  screens/       شاشات التطبيق
+supabase/
+  migrations/    مخطط قاعدة البيانات ودوال RPC
+  seed/          بيانات تجريبية
+deploy/          Worker لخدمة الملفات الثابتة
+.github/workflows/ci.yml
+```
 
+## التكامل المستمر
 
-# STARTUP SIMULATOR FEATURES
+سير عمل GitHub Actions في `.github/workflows/ci.yml` يعمل عند كل دفعة إلى `master` وينفّذ:
 
-## TECH NAME GENERATOR (tech_name_generator.rb)
-Generates a random tech name for your company
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm run build`
 
-## Menu Tree
-- main_menu
-    * raise_money
-    * hire_employees
-        - employee_choice
-    * build/improve products
-        - build
-        - improve
-    * company info
-    * employee info
+ويمكن متابعة النتائج من صفحة **Actions** في المستودع.
 
+## ملاحظات
 
-
-
-# TINY GAME ENGINE (TGE) FEATURES
-
-## UI Creator (UI.rb)
-Allows you to build out robust, styled menus. 
-- eventually want to be able to create logos with ASCII text
-
-## Game Events (gameevent.rb)
-- GameEvent class that stores game events. 
-- Class method that puts out your game events on each turn.
-
-
-## (Eventually) Gameobject Class (gameobject.rb)
-Will allow you to build player characters, enemy characters.
-
-## (Eventually) Story Class (story.rb)
-Will allow you to build stories with decision making branches that effect the direction of the story.
-
-## Additions - Tiny Game Engine
-
-- [x] add help menu
-- [] custom error handling
-- [x] ability to have an odd number of menu items
-- [] ability to have up to 9 numbers of menu items
-- [x] additional borders included
-- [x] instructions in the readme
-- [] metaprogram menu creator, making building menu trees easy.
-
-## Additions - Startup Simulator
-- [x] finish 4th menu - view company
-- [x] add improve employee function
-- [x] add improve product function
-- [x] add raise money from other investors functions
-- [] code in employee personality bonuses
-
-
-
-
-
-JERRY FOUND A BUG... CANNOT RUN BUNDLE 
-JERRY FOUND A BUG... CANNOT UNLOCK FINAL PRODUCT!!
-ADAM FOUND A BUG... 
+- لا تُرفع ملفات `.env.local` أو `node_modules` أو `dist` إلى المستودع (مستبعدة في `.gitignore`).
+- إذا كانت النسخة المحلية تستخدم نفس مشروع Supabase، فستتشارك البيانات مع النسخة المنشورة.
+- واجهة التطبيق تتطلب اتصالًا بالإنترنت للوصول إلى Supabase والخطوط.
