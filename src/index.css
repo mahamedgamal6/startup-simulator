@@ -239,6 +239,14 @@ input[type='range']::-moz-range-thumb {
   .print-break {
     break-inside: avoid;
   }
+
+  .print-sheet thead {
+    display: table-header-group;
+  }
+
+  .print-sheet tr {
+    break-inside: avoid;
+  }
 }
 
 /* Keep numeric table cells inside the table layout; inline-block is for badges. */
