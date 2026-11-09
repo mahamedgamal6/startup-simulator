@@ -240,3 +240,9 @@ input[type='range']::-moz-range-thumb {
     break-inside: avoid;
   }
 }
+
+/* Keep numeric table cells inside the table layout; inline-block is for badges. */
+td.num,
+th.num {
+  display: table-cell;
+}
