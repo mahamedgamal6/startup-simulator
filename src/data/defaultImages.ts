@@ -1,4 +1,4 @@
-import type { Accessory, FactoryImage, Machinery, Mold, Product } from '../types';
+import type { Accessory, FactoryImage, Machinery, Mold, PackagingRow, Product } from '../types';
 import { STORE_PRODUCT_PHOTOS } from './storeProductImages';
 
 const DEFAULT_UPDATED_AT = '2026-11-09T12:00:00.000Z';
@@ -249,11 +249,123 @@ function accessorySvg(accessory: Accessory, index: number): string {
   );
 }
 
+/** خلفية فاتحة لصور التغليف لتظهر بوضوح داخل جدول الطباعة الصغير. */
+const packagingShell = (body: string, accent: string, label: string, meta: string) => `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" width="640" height="420">
+  <defs>
+    <linearGradient id="pkgBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbfaf7"/>
+      <stop offset="100%" stop-color="#eee9df"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" fill="url(#pkgBg)"/>
+  <circle cx="88" cy="74" r="150" fill="${accent}" opacity="0.1"/>
+  <circle cx="556" cy="318" r="140" fill="${accent}" opacity="0.07"/>
+  ${body}
+  <rect x="28" y="344" width="584" height="52" rx="14" fill="#ffffff" opacity="0.92" stroke="#ddd5c7"/>
+  <text x="40" y="366" fill="${accent}" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2.6">ELZONKI PACKAGING</text>
+  <text x="40" y="384" fill="#777d87" font-family="Arial, sans-serif" font-size="9" letter-spacing="1">${escapeXml(meta)}</text>
+  <text x="600" y="367" text-anchor="end" direction="rtl" fill="#1b1b1e" font-family="Cairo, Tahoma, Arial, sans-serif" font-size="17" font-weight="700">${escapeXml(label)}</text>
+</svg>`;
+
+function packagingSvg(row: PackagingRow, index: number): string {
+  const code = row.code.toUpperCase();
+  const type = `${row.type} ${row.name} ${code}`;
+  const isBox = /BOX|كرتون/.test(type);
+  const isBag = /BAG|كيس|بوليث/.test(type);
+  const isLabel = /LBL|LABEL|STK|استيكر|ملصق|باركود/.test(type);
+  const isTape = /TAPE|شريط/.test(type);
+  const accent = ['#c98a4b', '#4A90E2', '#a95e6b', '#447a72', '#ec1c24'][index % 5];
+  const bars = (x: number, y: number, height = 24) =>
+    Array.from({ length: 24 }, (_, bar) => {
+      const barWidth = bar % 4 === 0 ? 1.8 : bar % 3 === 0 ? 1.2 : 0.8;
+      return `<rect x="${x + bar * 2.6}" y="${y}" width="${barWidth}" height="${height}" fill="#111111"/>`;
+    }).join('');
+  const dimensions = `${row.lengthCm}×${row.widthCm}×${row.heightCm} سم · ${row.unit || 'قطعة'}`;
+
+  let art = '';
+  if (isBox) {
+    art = `
+      <g>
+        <path d="M176 142 L320 88 L464 142 L464 286 L320 340 L176 286 Z" fill="#a86c36" stroke="#7d4e26" stroke-width="3"/>
+        <path d="M176 142 L320 196 L464 142 L320 88 Z" fill="#c98a4b" stroke="#7d4e26" stroke-width="3"/>
+        <path d="M320 196 L320 340" stroke="#84552b" stroke-width="3" opacity="0.7"/>
+        <path d="M176 142 L176 286 L320 340 L320 196 Z" fill="#b97a3f" opacity="0.65"/>
+        <path d="M464 142 L464 286 L320 340 L320 196 Z" fill="#8f5a2c" opacity="0.45"/>
+        <rect x="228" y="208" width="184" height="82" rx="6" fill="#f6f1e7" stroke="#d8cbb8"/>
+        <rect x="228" y="208" width="184" height="15" fill="${accent}"/>
+        <text x="320" y="238" text-anchor="middle" fill="#1b1b1e" font-family="Arial, sans-serif" font-size="11" font-weight="700">ELZONKI</text>
+        <text x="320" y="253" text-anchor="middle" fill="#6f665a" font-family="Arial, sans-serif" font-size="7.5">${escapeXml(row.code)}</text>
+        <g transform="translate(244, 260)">${bars(0, 0, 20)}</g>
+        <path d="M320 88 L320 340" stroke="#e8d6bf" stroke-width="14" opacity="0.55"/>
+      </g>`;
+  } else if (isBag) {
+    art = `
+      <g>
+        <path d="M212 112 H428 L414 302 C412 326 380 340 320 340 C260 340 228 326 226 302 Z" fill="#dbe8f1" stroke="#8fa9bb" stroke-width="3" opacity="0.97"/>
+        <path d="M238 124 H402 L390 292 C388 310 362 322 320 322 C278 322 252 310 250 292 Z" fill="#eef5fa" opacity="0.72"/>
+        <path d="M252 138 C300 120 370 120 392 142" fill="none" stroke="#ffffff" stroke-width="9" opacity="0.8" stroke-linecap="round"/>
+        <rect x="258" y="206" width="124" height="66" rx="5" fill="#ffffff" stroke="#b7c9d6"/>
+        <rect x="258" y="206" width="124" height="13" fill="${accent}"/>
+        <text x="320" y="236" text-anchor="middle" fill="#1b1b1e" font-family="Arial, sans-serif" font-size="9" font-weight="700">ELZONKI</text>
+        <text x="320" y="250" text-anchor="middle" fill="#70808c" font-family="Arial, sans-serif" font-size="7">${escapeXml(row.code)}</text>
+        <g transform="translate(272, 256)">${bars(0, 0, 12)}</g>
+        <path d="M226 166 H414" stroke="${accent}" stroke-width="2" stroke-dasharray="7 6" opacity="0.6"/>
+      </g>`;
+  } else if (isLabel) {
+    art = `
+      <g transform="rotate(-4 320 210)">
+        <rect x="186" y="138" width="268" height="150" rx="12" fill="#ffffff" stroke="#c9d2db" stroke-width="2"/>
+        <rect x="186" y="138" width="268" height="34" rx="12" fill="${accent}"/>
+        <rect x="186" y="158" width="268" height="14" fill="${accent}"/>
+        <text x="206" y="161" fill="#ffffff" font-family="Arial, sans-serif" font-size="15" font-weight="700">ELZONKI</text>
+        <text x="434" y="161" text-anchor="end" fill="#ffffff" font-family="Arial, sans-serif" font-size="8" letter-spacing="2">PACKAGING</text>
+        <text x="206" y="200" fill="#1b1b1e" font-family="Cairo, Tahoma, Arial, sans-serif" font-size="13" font-weight="700">${escapeXml(row.name)}</text>
+        <text x="206" y="218" fill="#6f7782" font-family="Arial, sans-serif" font-size="8">${escapeXml(row.code)} · ${escapeXml(dimensions)}</text>
+        <g transform="translate(206, 232)">${bars(0, 0, 30)}</g>
+        <rect x="388" y="232" width="52" height="34" rx="4" fill="#f1f4f7" stroke="#c9d2db"/>
+        <text x="414" y="253" text-anchor="middle" fill="#59636f" font-family="Arial, sans-serif" font-size="8" font-weight="700">QC</text>
+      </g>`;
+  } else if (isTape) {
+    art = `
+      <g>
+        <circle cx="320" cy="206" r="104" fill="#7d4e26" stroke="#5e3a1c" stroke-width="4"/>
+        <circle cx="320" cy="206" r="62" fill="#241a13"/>
+        <circle cx="320" cy="206" r="50" fill="#3a2a1e" stroke="#6b4a31" stroke-width="2"/>
+        <circle cx="320" cy="206" r="26" fill="url(#steel)" opacity="0.55"/>
+        <path d="M320 102 A104 104 0 0 1 424 206 L386 206 A66 66 0 0 0 320 140 Z" fill="${accent}" opacity="0.85"/>
+        <path d="M424 206 L520 228 L512 262 L418 240 Z" fill="#e8d6bf" opacity="0.9"/>
+        <text x="320" y="193" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="13" font-weight="700">ELZONKI</text>
+        <text x="320" y="210" text-anchor="middle" fill="#d8cbb8" font-family="Arial, sans-serif" font-size="8">${escapeXml(row.code)}</text>
+        <text x="320" y="226" text-anchor="middle" fill="#a9927b" font-family="Arial, sans-serif" font-size="7">${escapeXml(dimensions)}</text>
+      </g>`;
+  } else {
+    art = `
+      <g>
+        <path d="M180 264 L320 210 L460 264 L320 318 Z" fill="#2b3038" stroke="#4b5360" stroke-width="2"/>
+        <path d="M196 238 L320 190 L444 238 L320 286 Z" fill="#3a414c" stroke="#59616e" stroke-width="2"/>
+        <path d="M212 212 L320 168 L428 212 L320 256 Z" fill="#e3e8ee" stroke="#9aa4b1" stroke-width="2" opacity="0.9"/>
+        <path d="M212 212 L320 256 L320 286 L212 238 Z" fill="#c4ccd6" opacity="0.8"/>
+        <path d="M428 212 L320 256 L320 286 L428 238 Z" fill="#aab4c0" opacity="0.8"/>
+        <g opacity="0.7">
+          <path d="M252 194 L320 168 L388 194" fill="none" stroke="${accent}" stroke-width="3"/>
+          <path d="M252 212 L320 186 L388 212" fill="none" stroke="${accent}" stroke-width="2"/>
+        </g>
+        <text x="320" y="278" text-anchor="middle" fill="#1b1b1e" font-family="Arial, sans-serif" font-size="10" font-weight="700">${escapeXml(row.code)}</text>
+      </g>`;
+  }
+
+  return toDataUrl(
+    packagingShell(art, accent, row.name, `${row.code} · ${row.type || 'مادة تغليف'} · ${dimensions}`),
+  );
+}
+
 export function buildDefaultImages(
   products: Product[],
   machinery: Machinery[],
   molds: Mold[],
   accessories: Accessory[],
+  packaging: PackagingRow[],
 ): FactoryImage[] {
   return [
     ...products.map((product) => ({
@@ -278,6 +390,12 @@ export function buildDefaultImages(
       ownerTable: 'accessories' as const,
       ownerId: accessory.id,
       dataUrl: accessorySvg(accessory, index),
+      updatedAt: DEFAULT_UPDATED_AT,
+    })),
+    ...packaging.map((row, index) => ({
+      ownerTable: 'packaging' as const,
+      ownerId: row.id,
+      dataUrl: packagingSvg(row, index),
       updatedAt: DEFAULT_UPDATED_AT,
     })),
   ];

@@ -229,6 +229,7 @@ function loadDatabase(): Database {
         stageOverrides: product.stageOverrides ?? {},
       }))),
       packaging: applyPackagingMeta(merged.packaging ?? []),
+      images: withPackagingDefaultImages(merged.images ?? [], merged.packaging ?? []),
       accessories: (merged.accessories ?? []).map((accessory) => ({
         ...accessory,
         productCodes: Array.isArray(accessory.productCodes)
@@ -367,10 +368,32 @@ const normalizeImages = (rows: FactoryImage[] | null | undefined): FactoryImage[
       (row.ownerTable === 'products' ||
         row.ownerTable === 'machinery' ||
         row.ownerTable === 'molds' ||
-        row.ownerTable === 'accessories') &&
+        row.ownerTable === 'accessories' ||
+        row.ownerTable === 'packaging') &&
       typeof row.dataUrl === 'string' &&
       row.dataUrl.startsWith('data:image/'),
   );
+
+/** صور مواد التعبئة الافتراضية تُطابق بكود المادة لأن معرّفات الخادم تختلف عن بيانات البذرة. */
+const withPackagingDefaultImages = (
+  images: FactoryImage[],
+  packaging: PackagingRow[],
+): FactoryImage[] => {
+  const next = [...images];
+  for (const row of packaging) {
+    if (next.some((image) => image.ownerTable === 'packaging' && image.ownerId === row.id)) {
+      continue;
+    }
+    const seedRow = seedDatabase.packaging.find((item) => item.code === row.code);
+    const fallback = seedRow
+      ? seedDatabase.images.find(
+          (image) => image.ownerTable === 'packaging' && image.ownerId === seedRow.id,
+        )
+      : undefined;
+    if (fallback) next.push({ ...fallback, ownerId: row.id });
+  }
+  return next;
+};
 
 const normalizeInspections = (rows: Inspection[] | null | undefined): Inspection[] =>
   (Array.isArray(rows) ? rows : []).map((row) => ({
@@ -526,8 +549,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const remote = await rpc<RemoteFactoryPayload>('app_factory_bootstrap', {
           p_token: sessionToken,
         });
+        const remotePackaging = applyPackagingMeta(normalizePackaging(remote.packaging));
         const remoteImages = await upgradeLegacyProductPhotos(
-          normalizeImages(remote.images),
+          withPackagingDefaultImages(normalizeImages(remote.images), remotePackaging),
           normalizeProducts(remote.products),
           sessionToken,
         );
@@ -547,7 +571,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             machinery: normalizeMachinery(remote.machinery),
             spareParts: normalizeSpareParts(remote.spareParts),
             images: remoteImages,
-            packaging: applyPackagingMeta(normalizePackaging(remote.packaging)),
+            packaging: remotePackaging,
             sprayCoatings: sprays,
             productionPlans: prev.productionPlans ?? [],
             inspections: normalizeInspections(remote.inspections),

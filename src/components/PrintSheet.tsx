@@ -564,7 +564,7 @@ export function PrintSheet({
                           <img
                             src={image}
                             alt={item.name}
-                            className="mx-auto h-8 w-8 object-contain"
+                            className="mx-auto h-11 w-11 rounded border border-slate-200 bg-white object-contain"
                           />
                         ) : (
                           <span className="text-[7px] text-slate-400">—</span>
