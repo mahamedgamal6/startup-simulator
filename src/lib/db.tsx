@@ -229,7 +229,13 @@ function loadDatabase(): Database {
         stageOverrides: product.stageOverrides ?? {},
       }))),
       packaging: applyPackagingMeta(merged.packaging ?? []),
-      images: withPackagingDefaultImages(merged.images ?? [], merged.packaging ?? []),
+      images: withRawMaterialDefaultImages(
+        withAccessoryDefaultImages(
+          withPackagingDefaultImages(merged.images ?? [], merged.packaging ?? []),
+          merged.accessories ?? [],
+        ),
+        merged.rawMaterials ?? [],
+      ),
       accessories: (merged.accessories ?? []).map((accessory) => ({
         ...accessory,
         productCodes: Array.isArray(accessory.productCodes)
@@ -369,7 +375,8 @@ const normalizeImages = (rows: FactoryImage[] | null | undefined): FactoryImage[
         row.ownerTable === 'machinery' ||
         row.ownerTable === 'molds' ||
         row.ownerTable === 'accessories' ||
-        row.ownerTable === 'packaging') &&
+        row.ownerTable === 'packaging' ||
+        row.ownerTable === 'rawMaterials') &&
       typeof row.dataUrl === 'string' &&
       row.dataUrl.startsWith('data:image/'),
   );
@@ -388,6 +395,46 @@ const withPackagingDefaultImages = (
     const fallback = seedRow
       ? seedDatabase.images.find(
           (image) => image.ownerTable === 'packaging' && image.ownerId === seedRow.id,
+        )
+      : undefined;
+    if (fallback) next.push({ ...fallback, ownerId: row.id });
+  }
+  return next;
+};
+
+const withAccessoryDefaultImages = (
+  images: FactoryImage[],
+  accessories: Accessory[],
+): FactoryImage[] => {
+  const next = [...images];
+  for (const row of accessories) {
+    if (next.some((image) => image.ownerTable === 'accessories' && image.ownerId === row.id)) {
+      continue;
+    }
+    const seedRow = seedDatabase.accessories.find((item) => item.code === row.code);
+    const fallback = seedRow
+      ? seedDatabase.images.find(
+          (image) => image.ownerTable === 'accessories' && image.ownerId === seedRow.id,
+        )
+      : undefined;
+    if (fallback) next.push({ ...fallback, ownerId: row.id });
+  }
+  return next;
+};
+
+const withRawMaterialDefaultImages = (
+  images: FactoryImage[],
+  rawMaterials: RawMaterial[],
+): FactoryImage[] => {
+  const next = [...images];
+  for (const row of rawMaterials) {
+    if (next.some((image) => image.ownerTable === 'rawMaterials' && image.ownerId === row.id)) {
+      continue;
+    }
+    const seedRow = seedDatabase.rawMaterials.find((item) => item.code === row.code);
+    const fallback = seedRow
+      ? seedDatabase.images.find(
+          (image) => image.ownerTable === 'rawMaterials' && image.ownerId === seedRow.id,
         )
       : undefined;
     if (fallback) next.push({ ...fallback, ownerId: row.id });
@@ -550,8 +597,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           p_token: sessionToken,
         });
         const remotePackaging = applyPackagingMeta(normalizePackaging(remote.packaging));
+        const remoteRaw = normalizeRaw(remote.rawMaterials);
         const remoteImages = await upgradeLegacyProductPhotos(
-          withPackagingDefaultImages(normalizeImages(remote.images), remotePackaging),
+          withRawMaterialDefaultImages(
+            withAccessoryDefaultImages(
+              withPackagingDefaultImages(normalizeImages(remote.images), remotePackaging),
+              normalizeAccessories(remote.accessories),
+            ),
+            remoteRaw,
+          ),
           normalizeProducts(remote.products),
           sessionToken,
         );
@@ -565,7 +619,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return withComputedCosts({
             ...prev,
             products: applyVariantStore(normalizeProducts(remote.products)),
-            rawMaterials: normalizeRaw(remote.rawMaterials),
+            rawMaterials: remoteRaw,
             accessories: normalizeAccessories(remote.accessories),
             molds: normalizeMolds(remote.molds),
             machinery: normalizeMachinery(remote.machinery),

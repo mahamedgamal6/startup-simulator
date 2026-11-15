@@ -158,13 +158,35 @@ export function PrintSheet({
   // تقدير المنصات: منصة 1.2×1.0×1.2 م ≈ 1.44 CBM مع استغلال 85%.
   const cartonsPerPallet =
     spec.cbm > 0 ? Math.max(1, Math.floor((1.44 * 0.85) / spec.cbm)) : 0;
-  const packagingImage = (id: string) =>
-    db.images.find((image) => image.ownerTable === 'packaging' && image.ownerId === id)?.dataUrl;
+  const imageFor = (ownerTable: 'packaging' | 'accessories' | 'rawMaterials', id: string) =>
+    db.images.find((image) => image.ownerTable === ownerTable && image.ownerId === id)?.dataUrl;
+  const packagingImage = (id: string) => imageFor('packaging', id);
+  const rawImage = raw ? imageFor('rawMaterials', raw.id) : undefined;
+  const accessoryImage = (id: string) => imageFor('accessories', id);
   const packagingStageLabel: Record<string, string> = {
     inner: 'تعبئة داخلية',
     outer: 'تعبئة خارجية',
     shipping: 'شحن',
   };
+  const stageNames = new Map(stages.map((stage) => [stage.key, stage.name]));
+  const stageKeyForAccessory = (code: string, name: string) => {
+    const text = `${code} ${name}`;
+    if (/مصفي|بزبوز|strainer/i.test(text)) return 'strainer';
+    if (/غطاء|حلقة|زجاج|lid/i.test(text)) return 'lid';
+    if (/مقبض|يد|برشمة|مسمار|برشام|handle|rivet/i.test(text)) return 'riveting';
+    return 'packing';
+  };
+  const accessoryStage = (code: string, name: string) =>
+    stageNames.get(stageKeyForAccessory(code, name)) ?? 'التجميع والتعبئة';
+  const stageComponents = new Map<string, string[]>();
+  const addStageComponent = (key: string, label: string) => {
+    stageComponents.set(key, [...(stageComponents.get(key) ?? []), label]);
+  };
+  if (raw) addStageComponent('blanking', raw.code);
+  for (const item of accessories) {
+    addStageComponent(stageKeyForAccessory(item.code, item.name), item.code);
+  }
+  for (const item of packaging) addStageComponent('packing', item.code);
 
   const printStyle = {
     WebkitPrintColorAdjust: 'exact',
@@ -352,8 +374,22 @@ export function PrintSheet({
                 <tr>
                   <td className={`${bodyCell} num font-bold`}>{raw.code}</td>
                   <td className={bodyCell}>
-                    <span className="block font-bold">{raw.name}</span>
-                    <span className="text-[7.5px] text-slate-500">{raw.alloy}</span>
+                    <div className="flex items-center gap-2">
+                      {rawImage ? (
+                        <img
+                          src={rawImage}
+                          alt={raw.name}
+                          className="h-11 w-11 shrink-0 rounded border border-slate-200 bg-white object-contain"
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <span className="block font-bold">{raw.name}</span>
+                        <span className="block text-[7.5px] text-slate-500">{raw.alloy}</span>
+                        <span className="block text-[7px] text-slate-400">
+                          تُستخدم في: {stageNames.get('blanking') ?? 'ختم القطعة'}
+                        </span>
+                      </div>
+                    </div>
                   </td>
                   <td className={`${bodyCell} num font-extrabold`}>{rawQty.toFixed(3)}</td>
                   <td className={bodyCell}>كجم</td>
@@ -408,44 +444,61 @@ export function PrintSheet({
               <tr>
                 <th className={headCell}>#</th>
                 <th className={headCell}>الكود</th>
-                <th className={headCell}>اسم الإكسسوار</th>
-                <th className={headCell}>المادة</th>
+                <th className={headCell}>الإكسسوار والمادة</th>
                 <th className={headCell}>العدد / قطعة</th>
-                <th className={headCell}>المورد / المنشأ</th>
+                <th className={headCell}>مرحلة الاستخدام</th>
                 {isCost ? <th className={headCell}>تكلفة الوحدة</th> : null}
                 {isCost ? <th className={headCell}>تكلفة الاستخدام</th> : null}
               </tr>
             </thead>
             <tbody>
               {accessories.length ? (
-                accessories.map((item, index) => (
-                  <tr key={item.id}>
-                    <td className={`${bodyCell} num text-slate-400`}>{index + 1}</td>
-                    <td className={`${bodyCell} num font-bold`}>{item.code}</td>
-                    <td className={`${bodyCell} font-bold`}>{item.name}</td>
-                    <td className={bodyCell}>{item.material || '—'}</td>
-                    <td className={`${bodyCell} num font-bold`}>{fmt(item.qtyPerProduct)}</td>
-                    <td className={bodyCell}>{item.origin || '—'}</td>
-                    {isCost ? (
-                      <td className={`${bodyCell} num`}>{money(item.unitCost)} ج.م</td>
-                    ) : null}
-                    {isCost ? (
-                      <td className={`${bodyCell} num font-extrabold`}>
-                        {money(item.qtyPerProduct * item.unitCost)} ج.م
+                accessories.map((item, index) => {
+                  const image = accessoryImage(item.id);
+                  return (
+                    <tr key={item.id}>
+                      <td className={`${bodyCell} num text-slate-400`}>{index + 1}</td>
+                      <td className={`${bodyCell} num font-bold`}>{item.code}</td>
+                      <td className={bodyCell}>
+                        <div className="flex items-center gap-2">
+                          {image ? (
+                            <img
+                              src={image}
+                              alt={item.name}
+                              className="h-11 w-11 shrink-0 rounded border border-slate-200 bg-white object-contain"
+                            />
+                          ) : null}
+                          <div className="min-w-0">
+                            <span className="block font-bold">{item.name}</span>
+                            <span className="block text-[7.5px] text-slate-500">
+                              {item.material || '—'} · {item.origin || '—'}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                    ) : null}
-                  </tr>
-                ))
+                      <td className={`${bodyCell} num font-bold`}>{fmt(item.qtyPerProduct)}</td>
+                      <td className={bodyCell}>{accessoryStage(item.code, item.name)}</td>
+                      {isCost ? (
+                        <td className={`${bodyCell} num`}>{money(item.unitCost)} ج.م</td>
+                      ) : null}
+                      {isCost ? (
+                        <td className={`${bodyCell} num font-extrabold`}>
+                          {money(item.qtyPerProduct * item.unitCost)} ج.م
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 6}>
+                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 7 : 5}>
                     لا توجد إكسسوارات مرتبطة بهذا المنتج.
                   </td>
                 </tr>
               )}
               {isCost && accessories.length ? (
                 <tr className="bg-slate-100">
-                  <td className={`${bodyCell} font-black`} colSpan={7}>
+                  <td className={`${bodyCell} font-black`} colSpan={6}>
                     إجمالي تكلفة الإكسسوارات للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(accessoriesCost)} ج.م</td>
@@ -771,12 +824,12 @@ export function PrintSheet({
               <tr>
                 <th className={headCell}>#</th>
                 <th className={headCell}>المرحلة</th>
-                <th className={headCell}>الوصف الفني</th>
-                <th className={headCell}>الماكينة</th>
-                <th className={headCell}>الإسطمبة</th>
+                <th className={headCell}>الوصف / الملاحظات</th>
+                <th className={headCell}>الماكينة / الإسطمبة</th>
                 <th className={headCell}>العمال</th>
                 <th className={headCell}>الزمن (ث)</th>
                 <th className={headCell}>التراكمي (ث)</th>
+                <th className={headCell}>المكونات المستخدمة</th>
                 {isCost ? <th className={headCell}>تكلفة التشغيل</th> : null}
               </tr>
             </thead>
@@ -803,14 +856,21 @@ export function PrintSheet({
                         {stage.description}
                       </td>
                       <td className={bodyCell}>
-                        {stage.machineCode
-                          ? `${stage.machineCode} — ${stage.machineName}`
-                          : 'عمل يدوي'}
+                        <span className="block text-[7.5px]">
+                          {stage.machineCode
+                            ? `${stage.machineCode} — ${stage.machineName}`
+                            : 'عمل يدوي'}
+                        </span>
+                        <span className="num block text-[7px] text-slate-500">
+                          {stage.moldCode ?? 'بدون إسطمبة'}
+                        </span>
                       </td>
-                      <td className={`${bodyCell} num`}>{stage.moldCode ?? '—'}</td>
                       <td className={`${bodyCell} num`}>{stage.workers}</td>
                       <td className={`${bodyCell} num`}>{stage.seconds}</td>
                       <td className={`${bodyCell} num`}>{stage.cumulative}</td>
+                      <td className={`${bodyCell} text-[7px] leading-snug`}>
+                        {(stageComponents.get(stage.key) ?? []).join('، ') || '—'}
+                      </td>
                       {isCost ? (
                         <td className={`${bodyCell} num`}>{money(stageCosts[index])} ج.م</td>
                       ) : null}
@@ -837,9 +897,11 @@ export function PrintSheet({
             </tbody>
           </table>
           <p className="mt-1 text-[7.5px] font-medium text-slate-400">
+            المكونات مرتبطة بالمرحلة التي تُستخدم فيها (الأكواد مفسّرة في جدولي الخام والإكسسوارات):
+            الخام في ختم القطعة، المقابض والمسامير في البرشمة والتركيب، الغطاء والحلقة في تجميع
+            الغطاء، ومواد التعبئة في التجميع والتعبئة.
             تكلفة كل مرحلة = حصة العمالة موزعة حسب (الزمن × عدد العمال) + حصة المصاريف غير المباشرة
-            موزعة حسب الزمن. مجموع المراحل = إجمالي العمالة والمصاريف غير المباشرة في تفكيك التكلفة
-            {isCost ? ` (${money(stageCostTotal)} ج.م)` : ''}.
+            موزعة حسب الزمن (الإجمالي {isCost ? `${money(stageCostTotal)} ج.م` : ''}).
           </p>
         </section>
 

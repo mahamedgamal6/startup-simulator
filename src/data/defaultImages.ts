@@ -1,4 +1,4 @@
-import type { Accessory, FactoryImage, Machinery, Mold, PackagingRow, Product } from '../types';
+import type { Accessory, FactoryImage, Machinery, Mold, PackagingRow, Product, RawMaterial } from '../types';
 import { STORE_PRODUCT_PHOTOS } from './storeProductImages';
 
 const DEFAULT_UPDATED_AT = '2026-11-09T12:00:00.000Z';
@@ -250,12 +250,25 @@ function accessorySvg(accessory: Accessory, index: number): string {
 }
 
 /** خلفية فاتحة لصور التغليف لتظهر بوضوح داخل جدول الطباعة الصغير. */
-const packagingShell = (body: string, accent: string, label: string, meta: string) => `
+const packagingShell = (
+  body: string,
+  accent: string,
+  label: string,
+  meta: string,
+  kicker = 'ELZONKI PACKAGING',
+) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" width="640" height="420">
   <defs>
     <linearGradient id="pkgBg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#fbfaf7"/>
       <stop offset="100%" stop-color="#eee9df"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fdfefe"/>
+      <stop offset="28%" stop-color="#dfe4ea"/>
+      <stop offset="54%" stop-color="#aab2bd"/>
+      <stop offset="76%" stop-color="#eef1f5"/>
+      <stop offset="100%" stop-color="#9ba3b0"/>
     </linearGradient>
   </defs>
   <rect width="640" height="420" fill="url(#pkgBg)"/>
@@ -263,7 +276,7 @@ const packagingShell = (body: string, accent: string, label: string, meta: strin
   <circle cx="556" cy="318" r="140" fill="${accent}" opacity="0.07"/>
   ${body}
   <rect x="28" y="344" width="584" height="52" rx="14" fill="#ffffff" opacity="0.92" stroke="#ddd5c7"/>
-  <text x="40" y="366" fill="${accent}" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2.6">ELZONKI PACKAGING</text>
+  <text x="40" y="366" fill="${accent}" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2.6">${escapeXml(kicker)}</text>
   <text x="40" y="384" fill="#777d87" font-family="Arial, sans-serif" font-size="9" letter-spacing="1">${escapeXml(meta)}</text>
   <text x="600" y="367" text-anchor="end" direction="rtl" fill="#1b1b1e" font-family="Cairo, Tahoma, Arial, sans-serif" font-size="17" font-weight="700">${escapeXml(label)}</text>
 </svg>`;
@@ -360,12 +373,42 @@ function packagingSvg(row: PackagingRow, index: number): string {
   );
 }
 
+function rawMaterialSvg(row: RawMaterial, index: number): string {
+  const accent = ['#8b95a3', '#b08a5a', '#4A90E2', '#447a72'][index % 4];
+  const width = Math.min(210, Math.max(120, row.diameterCm * 5.4));
+  return toDataUrl(
+    packagingShell(
+      `<g>
+        <ellipse cx="320" cy="306" rx="${width * 0.92}" ry="28" fill="#1b1b1e" opacity="0.12"/>
+        <g transform="translate(0, 26)">
+          <ellipse cx="320" cy="234" rx="${width}" ry="${width * 0.36}" fill="#9aa3af" stroke="#7e8793" stroke-width="2"/>
+          <ellipse cx="320" cy="220" rx="${width}" ry="${width * 0.36}" fill="#b7bfc9" stroke="#7e8793" stroke-width="2"/>
+        </g>
+        <ellipse cx="320" cy="212" rx="${width}" ry="${width * 0.36}" fill="url(#steel)" stroke="#7e8793" stroke-width="3"/>
+        <ellipse cx="320" cy="212" rx="${width * 0.7}" ry="${width * 0.25}" fill="#d3dae2" stroke="#98a2af" stroke-width="2"/>
+        <ellipse cx="320" cy="212" rx="${width * 0.36}" ry="${width * 0.13}" fill="#eef2f6" stroke="#a7b0bc" stroke-width="2"/>
+        <path d="M${320 - width * 0.62} 194 Q${320 - width * 0.26} 174 ${320 + width * 0.06} 178" fill="none" stroke="#ffffff" stroke-width="9" opacity="0.65" stroke-linecap="round"/>
+        <g transform="translate(${320 - 88}, 268)">
+          <rect width="176" height="24" rx="5" fill="#ffffff" stroke="#d8d1c4"/>
+          <text x="88" y="10" text-anchor="middle" fill="${accent}" font-family="Arial, sans-serif" font-size="7" font-weight="700">ALUMINIUM DISC</text>
+          <text x="88" y="20" text-anchor="middle" fill="#5c636d" font-family="Arial, sans-serif" font-size="7">${escapeXml(row.code)} · ${row.diameterCm} سم · ${row.thicknessMm} مم</text>
+        </g>
+      </g>`,
+      accent,
+      row.name,
+      `${row.code} · ${row.alloy} · ${row.discWeightKg.toFixed(3)} كجم`,
+      'ELZONKI RAW MATERIAL',
+    ),
+  );
+}
+
 export function buildDefaultImages(
   products: Product[],
   machinery: Machinery[],
   molds: Mold[],
   accessories: Accessory[],
   packaging: PackagingRow[],
+  rawMaterials: RawMaterial[],
 ): FactoryImage[] {
   return [
     ...products.map((product) => ({
@@ -396,6 +439,12 @@ export function buildDefaultImages(
       ownerTable: 'packaging' as const,
       ownerId: row.id,
       dataUrl: packagingSvg(row, index),
+      updatedAt: DEFAULT_UPDATED_AT,
+    })),
+    ...rawMaterials.map((row, index) => ({
+      ownerTable: 'rawMaterials' as const,
+      ownerId: row.id,
+      dataUrl: rawMaterialSvg(row, index),
       updatedAt: DEFAULT_UPDATED_AT,
     })),
   ];

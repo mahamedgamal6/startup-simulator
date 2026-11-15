@@ -144,7 +144,13 @@ export interface SparePart extends BaseRow {
   notes: string;
 }
 
-export type ImageOwnerTable = 'products' | 'machinery' | 'molds' | 'accessories' | 'packaging';
+export type ImageOwnerTable =
+  | 'products'
+  | 'machinery'
+  | 'molds'
+  | 'accessories'
+  | 'packaging'
+  | 'rawMaterials';
 
 export interface FactoryImage {
   ownerTable: ImageOwnerTable;

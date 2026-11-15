@@ -745,7 +745,7 @@ export const seedDatabase: Database = {
   molds,
   machinery,
   spareParts: [],
-  images: buildDefaultImages(products, machinery, molds, accessories, allPackaging),
+  images: buildDefaultImages(products, machinery, molds, accessories, allPackaging, rawMaterials),
   packaging: allPackaging,
   costElements,
   sprayCoatings,
