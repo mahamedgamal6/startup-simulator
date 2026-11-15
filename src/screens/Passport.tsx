@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowLeftRight,
   BadgeCheck,
@@ -28,6 +28,7 @@ import {
 import { ProductArt, FAMILY_COLORS } from '../components/ProductArt';
 import { ProductPicker } from '../components/ProductPicker';
 import { EntityImage } from '../components/EntityImage';
+import { VariantsPanel } from '../components/VariantsPanel';
 import {
   Badge,
   Button,
@@ -46,12 +47,13 @@ import { useData } from '../lib/db';
 import { fmt, fmt1, money, pct } from '../lib/format';
 import {
   containerLoads,
-  discCostOf,
+  effectiveSpec,
   economicsOf,
   findSpraysForProduct,
-  findCostForProduct,
   findPackagingForProduct,
   findRawForProduct,
+  packagingUnitQty,
+  unitsPerHour,
 } from '../lib/cost';
 import {
   STAGE_DEFS,
@@ -60,7 +62,7 @@ import {
   cycleSeconds,
   formatCycle,
 } from '../lib/journey';
-import type { Accessory, Product, ResolvedStage } from '../types';
+import type { Accessory, Product, ProductVariant, ResolvedStage } from '../types';
 
 function Barcode({ value }: { value: string }) {
   const bars = useMemo(
@@ -124,7 +126,7 @@ export function PassportScreen({
   can: (permission: string) => boolean;
   productCode: string;
   onSelect: (code: string) => void;
-  onPrint: (payload: { code: string; mode: 'cost' | 'technical' }) => void;
+  onPrint: (payload: { code: string; variantId?: string; mode: 'cost' | 'technical' }) => void;
   log: (action: string, detail: string) => void;
 }) {
   const { db, upsert, remove, updateSettings, updateProductStages } = useData();
@@ -140,11 +142,16 @@ export function PassportScreen({
     accessory: Accessory | null;
   }>({ open: false, accessory: null });
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
+  const [variant, setVariant] = useState<ProductVariant | null>(null);
   const [deleteAccessory, setDeleteAccessory] = useState<Accessory | null>(null);
   const [machinesOpen, setMachinesOpen] = useState(false);
   const [machineDraft, setMachineDraft] = useState<Record<string, string>>({});
   const [stageTimeDraft, setStageTimeDraft] = useState<Record<string, string>>({});
   const [stageWorkersDraft, setStageWorkersDraft] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setVariant(null);
+  }, [product?.id]);
 
   const showCosts = can('passport.cost_view');
   const canSimulate = can('passport.simulate');
@@ -162,10 +169,14 @@ export function PassportScreen({
   }
 
   const handlePrint = () =>
-    onPrint({ code: product.code, mode: can('passport.print_cost') ? 'cost' : 'technical' });
+    onPrint({
+      code: product.code,
+      variantId: variant?.id,
+      mode: can('passport.print_cost') ? 'cost' : 'technical',
+    });
 
+  const spec = effectiveSpec(product, variant ?? undefined);
   const raw = findRawForProduct(db, product.code);
-  const cost = findCostForProduct(db, product.code);
   const packaging = findPackagingForProduct(db, product.code);
   const productAccessories = db.accessories.filter((item) =>
     item.productCodes.includes(product.code),
@@ -178,10 +189,24 @@ export function PassportScreen({
   const canViewSprays = can('data.sprayCoatings.view') || can('passport.view');
   const spraysCost = productSprays.reduce((sum, item) => sum + item.costPerProduct, 0);
   const stages = buildJourney(product, db.machinery, db.molds);
-  const cycle = cycleSeconds(stages);
-  const econ = economicsOf(cost, factor, margin);
-  const discCost = discCostOf(raw, factor);
-  const loads = containerLoads(product, econ.price);
+  const baseCycle = cycleSeconds(stages);
+  const cycle = variant?.cycleSeconds ?? baseCycle;
+  const econ = economicsOf(db, product.code, factor, margin, variant?.id);
+  const discCost = raw
+    ? (variant?.rawDiscWeightKg ?? raw.discWeightKg) * raw.pricePerKg * factor
+    : 0;
+  const loads = containerLoads(product, econ.price, {
+    cbm: spec.cbm,
+    grossWeightKg: spec.grossWeightKg,
+    pcsPerCarton: spec.pcsPerCarton,
+  });
+  const capacityPerHour = unitsPerHour(cycle);
+  const packagingCostTotal = packaging.reduce(
+    (sum, item) => sum + packagingUnitQty(item, variant ?? undefined) * item.unitCost,
+    0,
+  );
+  const canEditPackaging = can('data.packaging.edit');
+  const canEditStages = can('production.edit_times') || can('data.products.edit');
   const accent = FAMILY_COLORS[product.family]?.color ?? '#ec1c24';
   const activeIndex = activeStage ? stages.findIndex((stage) => stage.key === activeStage.key) : -1;
   const aluminumPercent = Math.round((factor - 1) * 100);
@@ -262,6 +287,16 @@ export function PassportScreen({
   const confirmDeleteProduct = async () => {
     if (!canDeleteProduct) return;
     const code = product.code;
+    const usedInPlans = (db.productionPlans ?? []).filter((plan) =>
+      plan.items.some((item) => item.productCode === code),
+    );
+    if (usedInPlans.length) {
+      toast(
+        `لا يمكن حذف منتج مرتبط بـ ${usedInPlans.length} خطة إنتاج. البيانات محفوظة للمقارنة التاريخية — ألغِ ارتباطه بالخطط أولًا.`,
+        'error',
+      );
+      return;
+    }
     const deleted = await remove('products', product.id);
     if (!deleted) return;
     /* عناصر التكلفة محسوبة تلقائيًا — لا حذف يدوي */
@@ -431,6 +466,17 @@ export function PassportScreen({
         </div>
       </Card>
 
+      <Card className="p-5">
+        <VariantsPanel
+          key={product.id}
+          product={product}
+          canEdit={canEditProduct}
+          selectedVariantId={variant?.id}
+          onSelect={setVariant}
+          onSaved={log}
+        />
+      </Card>
+
       {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-[#2a0d10] via-[#1d1d20] to-[#141416] p-5 text-white shadow-card sm:p-7">
         <div
@@ -468,10 +514,16 @@ export function PassportScreen({
               <span className="flex items-center gap-1 rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
                 <Sparkles size={12} /> ألومنيوم غذائي
               </span>
+              {variant ? (
+                <span className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/70">
+                  <span className="h-3 w-3 rounded-full border border-white/30" style={{ background: spec.colorHex }} />
+                  {spec.colorName}
+                </span>
+              ) : null}
             </div>
             <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
               {product.name}
-              <span className="mr-2 text-white/50">| {fmt(product.sizeCm)} سم</span>
+              <span className="mr-2 text-white/50">| {spec.sizeLabel}</span>
             </h2>
 
             <div className="mt-4 flex flex-wrap items-end gap-5">
@@ -481,17 +533,17 @@ export function PassportScreen({
                 </p>
                 <p className="num mt-0.5 text-xl font-black tracking-[0.16em]">{product.code}</p>
               </div>
-              <Barcode value={product.barcode} />
+              <Barcode value={spec.barcode} />
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
               {[
-                { label: 'المقاس', value: `${fmt(product.sizeCm)} سم` },
-                { label: 'الارتفاع', value: `${fmt1(product.heightCm)} سم` },
-                { label: 'السعة', value: `${fmt1(product.capacityL)} لتر` },
-                { label: 'الوزن الصافي', value: `${fmt1(product.netWeightKg * 1000)} جم` },
-                { label: 'بعد التعبئة', value: `${fmt1(product.grossWeightKg * 1000)} جم` },
-                { label: 'القطع/كرتونة', value: `${fmt(product.pcsPerCarton)} قطعة` },
+                { label: 'المقاس', value: `${fmt(spec.sizeCm)} سم` },
+                { label: 'الارتفاع', value: `${fmt1(spec.heightCm)} سم` },
+                { label: 'السعة', value: `${fmt1(spec.capacityL)} لتر` },
+                { label: 'الوزن الصافي', value: `${fmt1(spec.netWeightKg * 1000)} جم` },
+                { label: 'بعد التعبئة', value: `${fmt1(spec.grossWeightKg * 1000)} جم` },
+                { label: 'القطع/كرتونة', value: `${fmt(spec.pcsPerCarton)} قطعة` },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -511,7 +563,7 @@ export function PassportScreen({
               </p>
               <p className="mt-1 text-lg font-black num">{formatCycle(cycle)}</p>
               <p className="mt-0.5 text-[10px] font-medium text-white/40">
-                17 مرحلة معتمدة
+                17 مرحلة معتمدة · {fmt1(capacityPerHour)} قطعة/ساعة
               </p>
             </div>
             {canPrint ? (
@@ -707,13 +759,42 @@ export function PassportScreen({
                   {canEditSettings ? (
                     <div className="mt-2">
                       <RangeSlider
-                        label="هامش الربح"
+                        label="نسبة الربح (0% — 200%)"
                         value={margin}
-                        min={10}
-                        max={45}
+                        min={0}
+                        max={200}
                         step={1}
                         onChange={(value) => updateSettings({ marginPct: value })}
                       />
+                      <div className="mt-2 grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => updateSettings({ pricingMode: 'margin' })}
+                          className={cn(
+                            'rounded-lg border px-2 py-1.5 text-[10px] font-bold transition',
+                            db.settings.pricingMode === 'margin'
+                              ? 'border-brand bg-brand-soft text-brand-dark'
+                              : 'border-slate-200 bg-white text-slate-500',
+                          )}
+                        >
+                          هامش من سعر البيع
+                        </button>
+                        <button
+                          onClick={() => updateSettings({ pricingMode: 'markup' })}
+                          className={cn(
+                            'rounded-lg border px-2 py-1.5 text-[10px] font-bold transition',
+                            db.settings.pricingMode === 'markup'
+                              ? 'border-brand bg-brand-soft text-brand-dark'
+                              : 'border-slate-200 bg-white text-slate-500',
+                          )}
+                        >
+                          زيادة على التكلفة
+                        </button>
+                      </div>
+                      <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] font-semibold text-slate-500">
+                        المعادلة المطبقة: {econ.pricingMode === 'markup' ? 'سعر البيع = التكلفة × (1 + النسبة)' : 'سعر البيع = التكلفة ÷ (1 - النسبة)'}
+                        {' '}— الهامش الفعلي من سعر البيع: {fmt1(econ.effectiveMarginPct)}%.
+                        {margin >= 100 ? ' عند 100% أو أكثر يُستخدم أسلوب الزيادة على التكلفة تلقائيًا لتجنب نتائج مضللة.' : ''}
+                      </p>
                     </div>
                   ) : (
                     <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] font-semibold text-slate-400">
@@ -769,9 +850,9 @@ export function PassportScreen({
         <Card className="p-5 xl:col-span-7">
           <SectionHeading
             title="التعبئة ومواصفات الشحن"
-            subtitle="أبعاد الكرتونة وسعة الحاويات لكل منتج"
+            subtitle={`أبعاد الكرتونة وسعة الحاويات — ${spec.sizeLabel} / ${spec.colorName}`}
             icon={<Container size={17} />}
-            action={<Badge tone="blue">{fmt(product.pcsPerCarton)} قطعة / كرتونة</Badge>}
+            action={<Badge tone="blue">{fmt(spec.pcsPerCarton)} قطعة / كرتونة</Badge>}
           />
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -779,39 +860,85 @@ export function PassportScreen({
               <div className="flex items-center justify-between rounded-xl bg-mist/70 px-3 py-2 text-[11px]">
                 <span className="font-semibold text-slate-500">حجم الكرتونة</span>
                 <span className="num font-extrabold">
-                  {product.cbm} CBM
+                  {spec.cbm} CBM
                 </span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-mist/70 px-3 py-2 text-[11px]">
                 <span className="font-semibold text-slate-500">الوزن بعد التعبئة / قطعة</span>
-                <span className="num font-extrabold">{product.grossWeightKg} كجم</span>
+                <span className="num font-extrabold">{spec.grossWeightKg} كجم</span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-mist/70 px-3 py-2 text-[11px]">
                 <span className="font-semibold text-slate-500">وزن الكرتونة الكاملة</span>
                 <span className="num font-extrabold">
-                  {fmt1(product.grossWeightKg * product.pcsPerCarton)} كجم
+                  {fmt1(spec.grossWeightKg * spec.pcsPerCarton)} كجم
                 </span>
               </div>
 
               <div className="rounded-xl border border-slate-100 p-3">
-                <p className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                  <Package size={12} /> مكوّنات التغليف المرتبطة
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                    <Package size={12} /> مواد التعبئة والتغليف (Packaging Components)
+                  </p>
+                  <span className="num text-[10px] font-bold text-elora">
+                    {packaging.length} مادة
+                  </span>
+                </div>
                 {packaging.length ? (
-                  <div className="mt-2 space-y-1.5">
-                    {packaging.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-2 text-[10px]">
-                        <span className="min-w-0">
-                          <span className="block truncate font-bold text-ink">{item.name}</span>
-                          <span className="num block font-medium text-slate-400">
-                            {item.code} · {fmt(item.lengthCm)}×{fmt(item.widthCm)}×{fmt(item.heightCm)} سم
-                          </span>
-                        </span>
-                        <span className="num shrink-0 font-bold text-slate-600">
-                          {showCosts ? `${money(item.unitCost)} ج.م` : '—'}
-                        </span>
+                  <div className="scrollbar-thin mt-2 overflow-x-auto">
+                    <table className="w-full min-w-[430px] text-right text-[10px]">
+                      <thead>
+                        <tr className="bg-mist/80 text-[9px] font-bold text-slate-500">
+                          <th className="px-2 py-1.5">المادة</th>
+                          <th className="px-2 py-1.5">الكمية</th>
+                          <th className="px-2 py-1.5">الوحدة</th>
+                          <th className="px-2 py-1.5">سعر الوحدة</th>
+                          <th className="px-2 py-1.5">تكلفة الاستخدام</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {packaging.map((item) => {
+                          const qty = packagingUnitQty(item, variant ?? undefined);
+                          return (
+                            <tr key={item.id} className="border-t border-slate-100">
+                              <td className="px-2 py-2">
+                                <div className="flex items-center gap-2">
+                                  <EntityImage
+                                    ownerTable="packaging"
+                                    ownerId={item.id}
+                                    canEdit={canEditPackaging}
+                                    showControls={false}
+                                    preview
+                                    alt={item.name}
+                                    className="h-9 w-9 shrink-0 rounded-lg"
+                                    fallback={<Package size={14} className="text-slate-400" />}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="truncate font-bold text-ink">{item.name}</p>
+                                    <p className="num text-[9px] font-semibold text-slate-400">
+                                      {item.code} · {item.type || 'مادة تغليف'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="num px-2 py-2 font-bold">{qty.toFixed(2)}</td>
+                              <td className="px-2 py-2 font-medium text-slate-500">{item.unit || 'قطعة'}</td>
+                              <td className="num px-2 py-2 font-bold">
+                                {showCosts ? `${money(item.unitCost)} ج.م` : '—'}
+                              </td>
+                              <td className="num px-2 py-2 font-extrabold text-ink">
+                                {showCosts ? `${money(qty * item.unitCost)} ج.م` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {showCosts ? (
+                      <div className="mt-2 flex items-center justify-between rounded-lg bg-elora/5 px-2.5 py-2 text-[10px]">
+                        <span className="font-bold text-slate-600">إجمالي تكلفة التعبئة للقطعة</span>
+                        <span className="num font-black text-elora">{money(packagingCostTotal)} ج.م</span>
                       </div>
-                    ))}
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-2 text-[10px] text-slate-400">لا توجد مكوّنات تغليف مرتبطة.</p>
@@ -1123,7 +1250,7 @@ export function PassportScreen({
           action={
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="brand">{formatCycle(cycle)} / قطعة</Badge>
-              {canEditProduct ? (
+              {canEditStages ? (
                 <Button size="sm" variant="outline" onClick={openMachineEditor}>
                   <Wrench size={14} /> تعديل المراحل
                 </Button>
@@ -1194,7 +1321,7 @@ export function PassportScreen({
         size="md"
         footer={
           <>
-            {canEditProduct ? (
+            {canEditStages ? (
               <Button variant="outline" onClick={openMachineEditor}>
                 <Wrench size={14} /> تعديل إعدادات المرحلة
               </Button>

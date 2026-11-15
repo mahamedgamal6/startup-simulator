@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Calculator,
+  CalendarRange,
   ChevronDown,
   Database,
   Factory,
@@ -42,6 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'passport', label: 'بطاقة المنتج', icon: Package, group: 'الخدمات', permission: 'passport.view' },
   { key: 'finance', label: 'التحليل المالي', icon: Calculator, group: 'الخدمات', permission: 'finance.view' },
   { key: 'production', label: 'الإنتاج والماكينات', icon: Factory, group: 'الخدمات', permission: 'production.view' },
+  { key: 'planning', label: 'خطط الإنتاج والتشغيل', icon: CalendarRange, group: 'الخدمات', permission: 'planning.view' },
   { key: 'quality', label: 'الجودة والتشغيل', icon: ShieldCheck, group: 'الخدمات', permission: 'quality.view' },
   { key: 'data', label: 'مركز البيانات', icon: Database, group: 'الخدمات', permission: 'data.any' },
   { key: 'users', label: 'المستخدمون', icon: Users, group: 'إدارة النظام', permission: 'users.view' },
@@ -75,6 +77,11 @@ export const VIEW_META: Record<
     label: 'الإنتاج والماكينات',
     subtitle: 'الخطوط والإسطمبات وأزمنة التشغيل',
     icon: Factory,
+  },
+  planning: {
+    label: 'خطط الإنتاج والتشغيل',
+    subtitle: 'تخطيط الكميات والتكاليف والطاقة الإنتاجية',
+    icon: CalendarRange,
   },
   finance: {
     label: 'التحليل المالي',

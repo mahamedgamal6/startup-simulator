@@ -10,15 +10,19 @@ import {
   containerLoads,
   discCostOf,
   economicsOf,
+  effectiveSpec,
   findPackagingForProduct,
   findRawForProduct,
   findSpraysForProduct,
+  packagingUnitQty,
+  resolveVariant,
 } from '../lib/cost';
 import { buildJourney, cycleSeconds, formatCycle, STAGE_GROUPS } from '../lib/journey';
 import { QUALITY_CHECKS } from '../data/quality';
 
 export interface PrintPayload {
   code: string;
+  variantId?: string;
   mode: 'cost' | 'technical';
 }
 
@@ -83,29 +87,44 @@ export function PrintSheet({
   const product = db.products.find((item) => item.code === payload.code);
   if (!product) return null;
 
+  const variant = resolveVariant(product, payload.variantId);
+  const spec = effectiveSpec(product, variant ?? undefined);
   const raw = findRawForProduct(db, product.code);
   const packaging = findPackagingForProduct(db, product.code);
   const accessories = db.accessories.filter((item) =>
     item.productCodes.includes(product.code),
   );
   const sprays = findSpraysForProduct(db, product.code);
-  const econ = economicsOf(db, product.code, db.settings.aluminumFactor, db.settings.marginPct);
+  const econ = economicsOf(
+    db,
+    product.code,
+    db.settings.aluminumFactor,
+    db.settings.marginPct,
+    variant?.id,
+  );
   const stages = buildJourney(product, db.machinery, db.molds);
-  const cycle = cycleSeconds(stages);
+  const cycle = variant?.cycleSeconds ?? cycleSeconds(stages);
   const isCost = payload.mode === 'cost';
   const inspections = db.inspections.filter((item) => item.productCode === product.code);
-  const mold = db.molds.find((item) => item.sizeCm === product.sizeCm);
+  const mold = db.molds.find((item) => item.sizeCm === spec.sizeCm);
   const productImage = db.images.find(
     (item) => item.ownerTable === 'products' && item.ownerId === product.id,
   );
-  const loads = containerLoads(product, econ.price);
+  const loads = containerLoads(product, econ.price, {
+    cbm: spec.cbm,
+    grossWeightKg: spec.grossWeightKg,
+    pcsPerCarton: spec.pcsPerCarton,
+  });
   const accessoriesCost = accessories.reduce(
     (sum, item) => sum + item.qtyPerProduct * item.unitCost,
     0,
   );
-  const packagingCost = packaging.reduce((sum, item) => sum + item.unitCost, 0);
+  const packagingCost = packaging.reduce(
+    (sum, item) => sum + packagingUnitQty(item, variant ?? undefined) * item.unitCost,
+    0,
+  );
   const spraysCost = sprays.reduce((sum, item) => sum + item.costPerProduct, 0);
-  const cartonGrossWeight = product.grossWeightKg * product.pcsPerCarton;
+  const cartonGrossWeight = spec.grossWeightKg * spec.pcsPerCarton;
 
   const printStyle = {
     WebkitPrintColorAdjust: 'exact',
@@ -185,7 +204,7 @@ export function PrintSheet({
           <div className="min-w-0">
             <h3 className="text-[16px] font-black leading-tight">{product.name}</h3>
             <p className="mt-0.5 text-[10px] font-bold text-slate-500">
-              {product.sizeCm} سم — خط {product.family}
+              {spec.sizeLabel} — {spec.colorName} — خط {product.family}
             </p>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[9px]">
               <div>
@@ -194,11 +213,11 @@ export function PrintSheet({
               </div>
               <div>
                 <dt className="inline font-semibold text-slate-500">السعة: </dt>
-                <dd className="num inline font-black">{fmt1(product.capacityL)} لتر</dd>
+                <dd className="num inline font-black">{fmt1(spec.capacityL)} لتر</dd>
               </div>
               <div>
                 <dt className="inline font-semibold text-slate-500">الوزن الصافي: </dt>
-                <dd className="num inline font-black">{fmt1(product.netWeightKg)} كجم</dd>
+                <dd className="num inline font-black">{fmt1(spec.netWeightKg)} كجم</dd>
               </div>
               <div>
                 <dt className="inline font-semibold text-slate-500">وزن الكرتونة: </dt>
@@ -216,7 +235,7 @@ export function PrintSheet({
           </div>
 
           <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white p-2">
-            <Barcode value={product.barcode} />
+            <Barcode value={spec.barcode} />
             <p className="text-[8px] font-bold text-slate-500">باركود المنتج — EAN/Code128</p>
           </div>
         </section>
@@ -230,17 +249,18 @@ export function PrintSheet({
                 [
                   ['كود المنتج', product.code],
                   ['عائلة المنتج', product.family],
-                  ['المقاس', `${fmt(product.sizeCm)} سم`],
-                  ['الارتفاع', `${fmt1(product.heightCm)} سم`],
+                  ['المقاس', spec.sizeLabel],
+                  ['اللون', spec.colorName],
+                  ['الارتفاع', `${fmt1(spec.heightCm)} سم`],
                 ],
                 [
-                  ['السعة', `${fmt1(product.capacityL)} لتر`],
-                  ['الوزن الصافي', `${fmt1(product.netWeightKg)} كجم`],
-                  ['الوزن بعد التعبئة', `${fmt1(product.grossWeightKg)} كجم`],
-                  ['عدد القطع بالكرتونة', `${fmt(product.pcsPerCarton)} قطعة`],
+                  ['السعة', `${fmt1(spec.capacityL)} لتر`],
+                  ['الوزن الصافي', `${fmt1(spec.netWeightKg)} كجم`],
+                  ['الوزن بعد التعبئة', `${fmt1(spec.grossWeightKg)} كجم`],
+                  ['عدد القطع بالكرتونة', `${fmt(spec.pcsPerCarton)} قطعة`],
                 ],
                 [
-                  ['حجم الكرتونة', `${product.cbm} CBM`],
+                  ['حجم الكرتونة', `${spec.cbm} CBM`],
                   ['وزن الكرتونة الكاملة', `${fmt1(cartonGrossWeight)} كجم`],
                   ['الإسطمبة', mold ? `${mold.code} — ${mold.name}` : '—'],
                   ['زمن دورة التصنيع', formatCycle(cycle)],
@@ -435,11 +455,11 @@ export function PrintSheet({
           <div className="mb-1.5 grid grid-cols-4 gap-2 text-[8.5px]">
             <div className="rounded border border-slate-300 p-1.5">
               <span className="block font-bold text-slate-500">حجم الكرتونة</span>
-              <span className="num font-black">{product.cbm} CBM</span>
+              <span className="num font-black">{spec.cbm} CBM</span>
             </div>
             <div className="rounded border border-slate-300 p-1.5">
               <span className="block font-bold text-slate-500">القطع بالكرتونة</span>
-              <span className="num font-black">{fmt(product.pcsPerCarton)} قطعة</span>
+              <span className="num font-black">{fmt(spec.pcsPerCarton)} قطعة</span>
             </div>
             <div className="rounded border border-slate-300 p-1.5">
               <span className="block font-bold text-slate-500">وزن الكرتونة</span>
@@ -458,8 +478,9 @@ export function PrintSheet({
                 <th className={headCell}>الأبعاد (طول × عرض × ارتفاع)</th>
                 <th className={headCell}>الوزن الفارغ</th>
                 <th className={headCell}>القطع الداخلية</th>
-                {isCost ? <th className={headCell}>تكلفة الوحدة</th> : null}
-                {isCost ? <th className={headCell}>الإجمالي</th> : null}
+                <th className={headCell}>الكمية المستهلكة</th>
+                {isCost ? <th className={headCell}>سعر الوحدة</th> : null}
+                {isCost ? <th className={headCell}>تكلفة الاستخدام</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -473,26 +494,29 @@ export function PrintSheet({
                     </td>
                     <td className={`${bodyCell} num`}>{fmt1(item.emptyWeightKg)} كجم</td>
                     <td className={`${bodyCell} num`}>{fmt(item.pcsInside)}</td>
+                    <td className={`${bodyCell} num`}>
+                      {packagingUnitQty(item, variant ?? undefined).toFixed(2)} {item.unit || 'قطعة'}
+                    </td>
                     {isCost ? (
                       <td className={`${bodyCell} num`}>{money(item.unitCost)} ج.م</td>
                     ) : null}
                     {isCost ? (
                       <td className={`${bodyCell} num font-extrabold`}>
-                        {money(item.unitCost)} ج.م
+                        {money(packagingUnitQty(item, variant ?? undefined) * item.unitCost)} ج.م
                       </td>
                     ) : null}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 7 : 5}>
+                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 6}>
                     لا توجد مكونات تغليف مرتبطة بهذا المنتج.
                   </td>
                 </tr>
               )}
               {isCost && packaging.length ? (
                 <tr className="bg-slate-100">
-                  <td className={`${bodyCell} font-black`} colSpan={6}>
+                  <td className={`${bodyCell} font-black`} colSpan={7}>
                     إجمالي تكلفة التغليف للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(packagingCost)} ج.م</td>

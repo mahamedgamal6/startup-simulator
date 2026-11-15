@@ -27,6 +27,10 @@ import type {
   PackagingRow,
   Product,
   RawMaterial,
+  ProductColor,
+  ProductSize,
+  ProductVariant,
+  ProductionPlan,
   Settings,
   SparePart,
   SprayCoating,
@@ -37,34 +41,194 @@ import type {
 
 const STORAGE_KEY = 'elzonki.db.v1';
 const SPRAY_STORAGE_KEY = 'elzonki.sprays.v1';
+const VARIANT_STORAGE_KEY = 'elzonki.variants.v1';
+
+interface VariantStoreEntry {
+  sizes: ProductSize[];
+  colors: ProductColor[];
+  variants: ProductVariant[];
+}
+
+function loadVariantStore(): Record<string, VariantStoreEntry> {
+  try {
+    const stored = localStorage.getItem(VARIANT_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as Record<string, VariantStoreEntry>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveVariantStore(store: Record<string, VariantStoreEntry>) {
+  try {
+    localStorage.setItem(VARIANT_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    /* التخزين ممتلئ أو غير متاح */
+  }
+}
+
+/** يدمج المقاسات والألوان والتركيبات المحفوظة محليًا فوق بيانات الخادم. */
+function applyVariantStore(products: Product[]): Product[] {
+  const store = loadVariantStore();
+  let changed = false;
+  const next = products.map((product) => {
+    let entry = store[product.id];
+    if (!entry) {
+      const seeded = seedDatabase.products.find((row) => row.code === product.code);
+      if (seeded?.variants?.length) {
+        entry = {
+          sizes: seeded.sizes ?? [],
+          colors: seeded.colors ?? [],
+          variants: (seeded.variants ?? []).map((variant) => ({
+            ...variant,
+            productId: product.id,
+          })),
+        };
+        store[product.id] = entry;
+        changed = true;
+      }
+    }
+    if (!entry) return product;
+    return {
+      ...product,
+      sizes: entry.sizes ?? [],
+      colors: entry.colors ?? [],
+      variants: (entry.variants ?? []).map((variant) => ({
+        ...variant,
+        productId: product.id,
+      })),
+    };
+  });
+  if (changed) saveVariantStore(store);
+  return next;
+}
+
+const PACKAGING_META_KEY = 'elzonki.packaging.meta.v1';
+type PackagingMeta = Pick<
+  PackagingRow,
+  'type' | 'material' | 'description' | 'unit' | 'supplier' | 'minStock' | 'stage' | 'qtyPerProduct'
+>;
+
+function loadPackagingMeta(): Record<string, PackagingMeta> {
+  try {
+    const stored = localStorage.getItem(PACKAGING_META_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as Record<string, PackagingMeta>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePackagingMeta(rows: PackagingRow[]) {
+  try {
+    const store = loadPackagingMeta();
+    for (const row of rows) {
+      store[row.id] = {
+        type: row.type,
+        material: row.material,
+        description: row.description,
+        unit: row.unit,
+        supplier: row.supplier,
+        minStock: row.minStock,
+        stage: row.stage,
+        qtyPerProduct: row.qtyPerProduct,
+      };
+    }
+    localStorage.setItem(PACKAGING_META_KEY, JSON.stringify(store));
+  } catch {
+    /* التخزين ممتلئ أو غير متاح */
+  }
+}
+
+/** يدمج بيانات مواد التعبئة الموسعة محليًا فوق بيانات الخادم (حتى تطبيق migration). */
+function applyPackagingMeta(rows: PackagingRow[]): PackagingRow[] {
+  const store = loadPackagingMeta();
+  let changed = false;
+  const next = rows.map((row) => {
+    let meta = store[row.id];
+    if (!meta) {
+      const seeded = seedDatabase.packaging.find((item) => item.code === row.code);
+      if (seeded) {
+        meta = {
+          type: seeded.type,
+          material: seeded.material,
+          description: seeded.description,
+          unit: seeded.unit,
+          supplier: seeded.supplier,
+          minStock: seeded.minStock,
+          stage: seeded.stage,
+          qtyPerProduct: seeded.qtyPerProduct,
+        };
+        store[row.id] = meta;
+        changed = true;
+      }
+    }
+    return meta ? { ...row, ...meta } : row;
+  });
+  if (changed) {
+    try {
+      localStorage.setItem(PACKAGING_META_KEY, JSON.stringify(store));
+    } catch {
+      /* ignore */
+    }
+  }
+  return next;
+}
+
+const normalizePlans = (rows: ProductionPlan[] | null | undefined): ProductionPlan[] =>
+  (Array.isArray(rows) ? rows : []).map((plan) => ({
+    ...plan,
+    items: Array.isArray(plan.items) ? plan.items : [],
+    shiftHours: Number(plan.shiftHours) || 8,
+    shiftsPerDay: Number(plan.shiftsPerDay) || 1,
+    machinesAvailable: Number(plan.machinesAvailable) || 1,
+    plannedDowntimePct: Number(plan.plannedDowntimePct) || 0,
+    setupHours: Number(plan.setupHours) || 0,
+    targetDays: Number(plan.targetDays) || 0,
+    status: plan.status ?? 'draft',
+  }));
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 function loadDatabase(): Database {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return withComputedCosts({ ...clone(seedDatabase), sprayCoatings: loadLocalSprays() });
+    if (!stored)
+      return withComputedCosts({
+        ...clone(seedDatabase),
+        products: applyVariantStore(clone(seedDatabase.products)),
+        packaging: applyPackagingMeta(clone(seedDatabase.packaging)),
+        sprayCoatings: loadLocalSprays(),
+      });
     const parsed = JSON.parse(stored) as Partial<Database>;
     const base = clone(seedDatabase);
     const merged: Database = {
       ...base,
       ...parsed,
-      settings: { ...base.settings, ...(parsed.settings ?? {}) },
+      settings: {
+        ...base.settings,
+        ...(parsed.settings ?? {}),
+        pricingMode: parsed.settings?.pricingMode ?? base.settings.pricingMode ?? 'margin',
+      },
       molds: Array.isArray(parsed.molds) ? parsed.molds : base.molds,
       machinery: Array.isArray(parsed.machinery) ? parsed.machinery : base.machinery,
       spareParts: normalizeSpareParts(parsed.spareParts),
       images: Array.isArray(parsed.images) ? normalizeImages(parsed.images) : base.images,
       inspections: normalizeInspections(parsed.inspections),
       sprayCoatings: normalizeSprayCoatings(parsed.sprayCoatings ?? loadLocalSprays()),
+      productionPlans: normalizePlans(parsed.productionPlans),
       costElements: [],
     };
     const normalized: Database = {
       ...merged,
-      products: (merged.products ?? []).map((product) => ({
+      products: applyVariantStore((merged.products ?? []).map((product) => ({
         ...product,
         stageMachines: product.stageMachines ?? {},
         stageOverrides: product.stageOverrides ?? {},
-      })),
+      }))),
+      packaging: applyPackagingMeta(merged.packaging ?? []),
       accessories: (merged.accessories ?? []).map((accessory) => ({
         ...accessory,
         productCodes: Array.isArray(accessory.productCodes)
@@ -296,6 +460,12 @@ interface DataContextValue {
   removeImage: (ownerTable: ImageOwnerTable, ownerId: string) => Promise<boolean>;
   upsertSparePart: (part: SparePart) => Promise<boolean>;
   removeSparePart: (id: string) => Promise<boolean>;
+  updateProductVariants: (
+    productId: string,
+    payload: { sizes: ProductSize[]; colors: ProductColor[]; variants: ProductVariant[] },
+  ) => Promise<boolean>;
+  savePlan: (plan: ProductionPlan) => Promise<boolean>;
+  deletePlan: (id: string) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -370,18 +540,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
           saveLocalSprays(sprays);
           return withComputedCosts({
             ...prev,
-            products: normalizeProducts(remote.products),
+            products: applyVariantStore(normalizeProducts(remote.products)),
             rawMaterials: normalizeRaw(remote.rawMaterials),
             accessories: normalizeAccessories(remote.accessories),
             molds: normalizeMolds(remote.molds),
             machinery: normalizeMachinery(remote.machinery),
             spareParts: normalizeSpareParts(remote.spareParts),
             images: remoteImages,
-            packaging: normalizePackaging(remote.packaging),
+            packaging: applyPackagingMeta(normalizePackaging(remote.packaging)),
             sprayCoatings: sprays,
+            productionPlans: prev.productionPlans ?? [],
             inspections: normalizeInspections(remote.inspections),
             settings: remote.settings
-              ? { ...prev.settings, ...remote.settings }
+              ? {
+                  ...prev.settings,
+                  ...remote.settings,
+                  pricingMode: prev.settings.pricingMode ?? 'margin',
+                }
               : prev.settings,
           });
         });
@@ -478,6 +653,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         if (table === 'sprayCoatings') {
           saveLocalSprays(next.sprayCoatings ?? []);
+          next = withComputedCosts(next);
+        }
+        if (table === 'packaging') {
+          savePackagingMeta(rows as PackagingRow[]);
           next = withComputedCosts(next);
         }
         return next;
@@ -886,7 +1065,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     inspectionTimers.current.clear();
     inspectionVersions.current.clear();
     const seeded = withComputedCosts(clone(seedDatabase));
+    saveVariantStore(
+      Object.fromEntries(
+        seeded.products.map((product) => [
+          product.id,
+          {
+            sizes: product.sizes ?? [],
+            colors: product.colors ?? [],
+            variants: product.variants ?? [],
+          },
+        ]),
+      ),
+    );
     setDb(seeded);
+    savePackagingMeta(seeded.packaging);
     saveLocalSprays(seeded.sprayCoatings ?? []);
     if (!sessionToken) return true;
     writeInFlight.current += 1;
@@ -939,6 +1131,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       settingsTimer.current = window.setTimeout(() => {
         settingsTimer.current = null;
         const settings = dbRef.current.settings;
+        // النسخة الحالية من RPC الخادم تقبل حتى 90% فقط. القيم الأعلى تُحفظ محليًا
+        // إلى أن تُطبّق migration النطاق 0-200%، بدل رفض الحفظ أو تشويه القيمة.
+        if (settings.marginPct > 90) return;
         writeInFlight.current += 1;
         let failed = false;
         void (async () => {
@@ -948,7 +1143,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
               p_margin_pct: settings.marginPct,
               p_aluminum_factor: settings.aluminumFactor,
             });
-            setDb((prev) => ({ ...prev, settings: { ...prev.settings, ...saved } }));
+            setDb((prev) => ({
+              ...prev,
+              settings: {
+                ...prev.settings,
+                ...saved,
+                marginPct: settings.marginPct,
+                pricingMode: settings.pricingMode,
+              },
+            }));
             setSyncState((prev) => ({
               ...prev,
               error: '',
@@ -1117,6 +1320,80 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [sessionToken, loadRemote, toast],
   );
 
+
+  const updateProductVariants = useCallback(
+    async (
+      productId: string,
+      payload: { sizes: ProductSize[]; colors: ProductColor[]; variants: ProductVariant[] },
+    ): Promise<boolean> => {
+      const store = loadVariantStore();
+      store[productId] = payload;
+      saveVariantStore(store);
+      setDb((prev) =>
+        withComputedCosts({
+          ...prev,
+          products: prev.products.map((product) =>
+            product.id === productId ? { ...product, ...payload } : product,
+          ),
+        }),
+      );
+      if (!sessionToken) return true;
+      try {
+        await rpc('app_update_product_variants', {
+          p_token: sessionToken,
+          p_product_id: productId,
+          p_sizes: payload.sizes,
+          p_colors: payload.colors,
+          p_variants: payload.variants,
+        });
+      } catch {
+        /* الجدول/الدالة قد لا تكون مفعّلة على الخادم بعد؛ الحفظ المحلي ناجح */
+      }
+      return true;
+    },
+    [sessionToken],
+  );
+
+  const savePlan = useCallback(
+    async (plan: ProductionPlan): Promise<boolean> => {
+      setDb((prev) => ({
+        ...prev,
+        productionPlans: [
+          plan,
+          ...(prev.productionPlans ?? []).filter((item) => item.id !== plan.id),
+        ],
+      }));
+      if (!sessionToken) return true;
+      try {
+        await rpc('app_upsert_production_plan', {
+          p_token: sessionToken,
+          p_plan: plan,
+        });
+      } catch {
+        /* الخطة محفوظة محليًا وتتزامن بعد تطبيق migration خطط الإنتاج */
+      }
+      return true;
+    },
+    [sessionToken],
+  );
+
+  const deletePlan = useCallback(
+    async (id: string): Promise<boolean> => {
+      setDb((prev) => ({
+        ...prev,
+        productionPlans: (prev.productionPlans ?? []).filter((plan) => plan.id !== id),
+      }));
+      if (!sessionToken) return true;
+      try {
+        await rpc('app_delete_production_plan', { p_token: sessionToken, p_id: id });
+      } catch {
+        /* الحذف المحلي ناجح */
+      }
+      return true;
+    },
+    [sessionToken],
+  );
+
   const value = useMemo(
     () => ({
       db,
@@ -1134,6 +1411,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       removeImage,
       upsertSparePart,
       removeSparePart,
+      updateProductVariants,
+      savePlan,
+      deletePlan,
     }),
     [
       db,
@@ -1151,6 +1431,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       removeImage,
       upsertSparePart,
       removeSparePart,
+      updateProductVariants,
+      savePlan,
+      deletePlan,
     ],
   );
 

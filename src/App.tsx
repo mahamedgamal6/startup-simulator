@@ -6,6 +6,7 @@ import { Button, Card, useToast } from './components/ui';
 import { PassportScreen } from './screens/Passport';
 import { DataStudioScreen } from './screens/DataStudio';
 import { ProductionScreen } from './screens/Production';
+import { PlanningScreen } from './screens/Planning';
 import { FinanceScreen } from './screens/Finance';
 import { ExecutiveScreen } from './screens/Executive';
 import { QualityScreen } from './screens/Quality';
@@ -164,6 +165,7 @@ export default function App() {
               onManage={(table) => navigate('data', table)}
             />
           ) : null}
+          {activeView === 'planning' ? <PlanningScreen /> : null}
           {activeView === 'finance' ? (
             <FinanceScreen
               can={can}

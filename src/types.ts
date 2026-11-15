@@ -16,6 +16,53 @@ export interface StageOverride {
   workers: number;
 }
 
+export interface ProductSize {
+  id: string;
+  label: string;
+  sizeCm: number;
+  heightCm: number;
+  capacityL: number;
+  barcode: string;
+  active: boolean;
+}
+
+export interface ProductColor {
+  id: string;
+  name: string;
+  hex: string;
+  /** صورة توضيحية للون (Data URL) عند الحاجة */
+  imageUrl?: string;
+  active: boolean;
+}
+
+/** تركيبة منتج = مقاس + لون، لكل تركيبة مواصفاتها وتكلفتها وزمنها المستقل. */
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  sizeId: string;
+  colorId: string;
+  sizeLabel: string;
+  colorName: string;
+  colorHex: string;
+  sizeCm: number;
+  heightCm: number;
+  capacityL: number;
+  netWeightKg: number;
+  grossWeightKg: number;
+  cbm: number;
+  pcsPerCarton: number;
+  barcode: string;
+  /** وزن قرص الخام الفعلي لهذه التركيبة (يتجاوز قرص المنتج الأساسي) */
+  rawDiscWeightKg?: number;
+  /** فرق تكلفة الخامة/اللون عن التركيبة الأساسية */
+  extraCost: number;
+  /** زمن التشغيل الفعلي للقطعة بالثواني (يتجاوز زمن رحلة التصنيع) */
+  cycleSeconds?: number;
+  /** كميات مواد التعبئة المخصصة لهذه التركيبة: معرّف مادة التعبئة ← الكمية */
+  packagingQty?: Record<string, number>;
+  active: boolean;
+}
+
 export interface Product extends BaseRow {
   code: string;
   name: string;
@@ -32,6 +79,12 @@ export interface Product extends BaseRow {
   stageMachines?: Record<string, string>;
   /** زمن وعمالة مخصصان لكل مرحلة داخل بطاقة المنتج */
   stageOverrides?: Record<string, StageOverride>;
+  /** مقاسات المنتج وألوانه وتركيباته */
+  sizes?: ProductSize[];
+  colors?: ProductColor[];
+  variants?: ProductVariant[];
+  /** أرشفة منطقية للمنتج (لا يُحذف نهائيًا إذا ارتبط بخطط إنتاج) */
+  archived?: boolean;
 }
 
 export interface RawMaterial extends BaseRow {
@@ -87,7 +140,7 @@ export interface SparePart extends BaseRow {
   notes: string;
 }
 
-export type ImageOwnerTable = 'products' | 'machinery' | 'molds' | 'accessories';
+export type ImageOwnerTable = 'products' | 'machinery' | 'molds' | 'accessories' | 'packaging';
 
 export interface FactoryImage {
   ownerTable: ImageOwnerTable;
@@ -95,6 +148,8 @@ export interface FactoryImage {
   dataUrl: string;
   updatedAt: string;
 }
+
+export type PackagingStage = 'inner' | 'outer' | 'shipping';
 
 export interface PackagingRow extends BaseRow {
   code: string;
@@ -106,6 +161,17 @@ export interface PackagingRow extends BaseRow {
   unitCost: number;
   pcsInside: number;
   productCodes: string[];
+  /** تصنيف المادة: كرتون، كيس، استيكر، فواصل، شرائط، حماية... */
+  type: string;
+  material: string;
+  description: string;
+  unit: string;
+  supplier: string;
+  minStock: number;
+  /** مرحلة الاستخدام: تعبئة داخلية / خارجية / شحن */
+  stage: PackagingStage;
+  /** الكمية المستهلكة لكل وحدة منتج؛ إن لم تُحدد تُحسب من سعة الكرتونة */
+  qtyPerProduct?: number;
 }
 
 export interface CostElement extends BaseRow {
@@ -116,6 +182,8 @@ export interface CostElement extends BaseRow {
   carton: number;
   labor: number;
   overhead: number;
+  /** فرق تكلفة اللون/الخامة للتركيبة المختارة */
+  extra?: number;
 }
 
 export interface SprayCoating extends BaseRow {
@@ -140,9 +208,90 @@ export interface Inspection extends BaseRow {
   updatedAt: string;
 }
 
+export type PricingMode = 'margin' | 'markup';
+
 export interface Settings {
+  /** هامش الربح أو نسبة الزيادة على التكلفة: من 0% إلى 200% */
   marginPct: number;
   aluminumFactor: number;
+  /** طريقة التسعير المعتمدة */
+  pricingMode: PricingMode;
+}
+
+export type PlanStatus =
+  | 'draft'
+  | 'review'
+  | 'approved'
+  | 'ready'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'cancelled';
+
+export interface PlanItemSnapshot {
+  unitCost: number;
+  price: number;
+  cycleSeconds: number;
+  rawCode: string;
+  packagingCodes: string[];
+  at: string;
+}
+
+export interface ProductionPlanItem {
+  id: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  variantId?: string;
+  sizeLabel: string;
+  colorName: string;
+  qty: number;
+  notes: string;
+  snapshot?: PlanItemSnapshot;
+  /** تنفيذ فعلي للمقارنة مع المخطط */
+  actual?: {
+    producedQty: number;
+    actualHours: number;
+    actualCost: number;
+    wastePct: number;
+    deviationReason: string;
+    updatedAt: string;
+  };
+}
+
+export interface PlanSnapshot {
+  at: string;
+  approvedBy: string;
+  unitCount: number;
+  totalCost: number;
+  totalRevenue: number;
+  totalProfit: number;
+  totalHours: number;
+  avgUnitCost: number;
+}
+
+export interface ProductionPlan {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: string;
+  startDate: string;
+  factory: string;
+  line: string;
+  shift: string;
+  owner: string;
+  targetDays: number;
+  notes: string;
+  status: PlanStatus;
+  shiftHours: number;
+  shiftsPerDay: number;
+  machinesAvailable: number;
+  plannedDowntimePct: number;
+  setupHours: number;
+  items: ProductionPlanItem[];
+  snapshot?: PlanSnapshot;
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 export interface Database {
@@ -158,6 +307,9 @@ export interface Database {
   costElements: CostElement[];
   sprayCoatings: SprayCoating[];
   inspections: Inspection[];
+  wastePct?: number;
+  /** خطط الإنتاج والتشغيل (محفوظة محليًا وتتزامن عند توفر الجدول على الخادم) */
+  productionPlans: ProductionPlan[];
   settings: Settings;
 }
 
@@ -180,6 +332,7 @@ export type ViewKey =
   | 'passport'
   | 'data'
   | 'production'
+  | 'planning'
   | 'finance'
   | 'executive'
   | 'quality'

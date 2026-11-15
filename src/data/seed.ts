@@ -6,6 +6,9 @@ import type {
   Mold,
   PackagingRow,
   Product,
+  ProductColor,
+  ProductSize,
+  ProductVariant,
   RawMaterial,
   SprayCoating,
 } from '../types';
@@ -454,7 +457,12 @@ const machinery: Machinery[] = [
   },
 ];
 
-const packaging: PackagingRow[] = [
+type PackagingSeed = Omit<
+  PackagingRow,
+  'type' | 'material' | 'description' | 'unit' | 'supplier' | 'minStock' | 'stage' | 'qtyPerProduct'
+>;
+
+const packaging: PackagingSeed[] = [
   {
     id: 'pkg-BOX-S20',
     code: 'BOX-S20',
@@ -602,17 +610,146 @@ const sprayCoatings: SprayCoating[] = [
 
 const costElements: CostElement[] = [];
 
+
+function enrichPackaging(row: PackagingSeed): PackagingRow {
+  const isCarton = /كرتون|كرتونة|ماستر|صندوق/i.test(row.name);
+  const isBag = /كيس|بوليثيلين/i.test(row.name);
+  return {
+    ...row,
+    type: isCarton ? 'كرتون ماستر' : isBag ? 'كيس بلاستيك' : 'مادة تغليف',
+    material: isCarton ? 'كرتون مموج' : isBag ? 'بوليثيلين غذائي' : 'متعدد',
+    description: `${row.name} — ${row.lengthCm}×${row.widthCm}×${row.heightCm} سم`,
+    unit: isCarton ? 'كرتونة' : 'قطعة',
+    supplier: 'مورد محلي',
+    minStock: isCarton ? 50 : 500,
+    stage: isCarton ? 'outer' : 'inner',
+    qtyPerProduct: isCarton ? undefined : 1,
+  };
+}
+
+const innerPackaging: PackagingRow[] = products.flatMap((product) => [
+  {
+    id: `pkg-LBL-${product.code}`,
+    code: `LBL-${product.code}`,
+    name: 'استيكر باركود وتعريف المنتج',
+    lengthCm: 8,
+    widthCm: 5,
+    heightCm: 0.1,
+    emptyWeightKg: 0.002,
+    unitCost: 0.45,
+    pcsInside: 1,
+    productCodes: [product.code],
+    type: 'استيكر / ملصق',
+    material: 'ورق لاصق',
+    description: 'ملصق الباركود والمواصفات على جسم المنتج والكرتونة.',
+    unit: 'قطعة',
+    supplier: 'مطبعة محلية',
+    minStock: 1000,
+    stage: 'inner' as const,
+    qtyPerProduct: 1,
+  },
+  {
+    id: `pkg-BAG-${product.code}`,
+    code: `BAG-${product.code}`,
+    name: 'كيس بوليثيلين شفاف لحماية المنتج',
+    lengthCm: 32,
+    widthCm: 32,
+    heightCm: 2,
+    emptyWeightKg: 0.02,
+    unitCost: 1.1,
+    pcsInside: 1,
+    productCodes: [product.code],
+    type: 'كيس بلاستيك',
+    material: 'بوليثيلين غذائي',
+    description: 'كيس داخلي شفاف يحمي سطح المنتج أثناء التداول.',
+    unit: 'قطعة',
+    supplier: 'مورد محلي',
+    minStock: 1000,
+    stage: 'inner' as const,
+    qtyPerProduct: 1,
+  },
+]);
+
+function attachVariants(source: Product[], raws: RawMaterial[]): Product[] {
+  return source.map((product) => {
+    const baseRaw = raws.find((raw) => raw.productCodes.includes(product.code));
+    const sizes: ProductSize[] = [
+      {
+        id: `size-${product.code}-0`,
+        label: `${product.sizeCm} سم`,
+        sizeCm: product.sizeCm,
+        heightCm: product.heightCm,
+        capacityL: product.capacityL,
+        barcode: product.barcode,
+        active: true,
+      },
+      {
+        id: `size-${product.code}-1`,
+        label: `${product.sizeCm + 4} سم`,
+        sizeCm: product.sizeCm + 4,
+        heightCm: Number((product.heightCm + 1.2).toFixed(1)),
+        capacityL: Number((product.capacityL * 1.45).toFixed(1)),
+        barcode: '',
+        active: true,
+      },
+    ];
+    const colors: ProductColor[] = [
+      { id: `color-${product.code}-silver`, name: 'فضي كلاسيك', hex: '#c7ccd6', active: true },
+      { id: `color-${product.code}-black`, name: 'أسود مطفي', hex: '#26282d', active: true },
+    ];
+    const variants: ProductVariant[] = sizes.flatMap((size, sizeIndex) =>
+      colors.map((color, colorIndex) => {
+        const ratio = Math.pow(size.sizeCm / Math.max(product.sizeCm, 1), 1.8);
+        const cbm = Number((product.cbm * Math.pow(ratio, 1.2)).toFixed(3));
+        return {
+          id: `var-${product.code}-${sizeIndex}-${colorIndex}`,
+          productId: product.id,
+          sizeId: size.id,
+          colorId: color.id,
+          sizeLabel: size.label,
+          colorName: color.name,
+          colorHex: color.hex,
+          sizeCm: size.sizeCm,
+          heightCm: size.heightCm,
+          capacityL: size.capacityL,
+          netWeightKg: Number((product.netWeightKg * ratio).toFixed(3)),
+          grossWeightKg: Number((product.grossWeightKg * ratio).toFixed(3)),
+          cbm,
+          pcsPerCarton: Math.max(
+            1,
+            Math.round(product.pcsPerCarton / Math.pow(size.sizeCm / product.sizeCm, 1.5)),
+          ),
+          barcode:
+            sizeIndex === 0 && colorIndex === 0
+              ? product.barcode
+              : `${product.barcode}-${sizeIndex}${colorIndex}`,
+          rawDiscWeightKg: baseRaw
+            ? Number((baseRaw.discWeightKg * ratio).toFixed(3))
+            : undefined,
+          extraCost: colorIndex === 1 ? 4.5 : 0,
+          packagingQty: {},
+          active: true,
+        };
+      }),
+    );
+    return { ...product, sizes, colors, variants };
+  });
+}
+
+const allPackaging: PackagingRow[] = [...packaging.map(enrichPackaging), ...innerPackaging];
+
 export const seedDatabase: Database = {
-  products,
+  products: attachVariants(products, rawMaterials),
   rawMaterials,
   accessories,
   molds,
   machinery,
   spareParts: [],
   images: buildDefaultImages(products, machinery, molds, accessories),
-  packaging,
+  packaging: allPackaging,
   costElements,
   sprayCoatings,
   inspections: [],
-  settings: { marginPct: 22, aluminumFactor: 1 },
+  productionPlans: [],
+  settings: { marginPct: 22, aluminumFactor: 1, pricingMode: 'margin' },
 };

@@ -222,10 +222,10 @@ export function FinanceScreen({
             {canEditSettings ? (
               <div className="mt-3">
                 <RangeSlider
-                  label="هامش الربح"
+                  label="نسبة الربح (0% — 200%)"
                   value={margin}
-                  min={10}
-                  max={45}
+                  min={0}
+                  max={200}
                   step={1}
                   onChange={(value) => updateSettings({ marginPct: value })}
                 />

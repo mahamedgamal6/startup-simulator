@@ -2,7 +2,9 @@ import type {
   CostElement,
   Database,
   PackagingRow,
+  PricingMode,
   Product,
+  ProductVariant,
   RawMaterial,
   SprayCoating,
 } from '../types';
@@ -11,6 +13,7 @@ export const COMPONENT_COLORS = {
   raw: '#ec1c24',
   accessories: '#a95e6b',
   spray: '#7c3aed',
+  extra: '#0891b2',
   packaging: '#4A90E2',
   labor: '#447a72',
   overhead: '#f0a640',
@@ -35,14 +38,67 @@ export interface Economics {
   totalBase: number;
   total: number;
   marginPct: number;
+  /** الطريقة الفعلية المطبقة على السعر */
+  pricingMode: PricingMode;
+  /** هامش الربح الفعلي من سعر البيع بعد التطبيق */
+  effectiveMarginPct: number;
   price: number;
   priceBase: number;
   profit: number;
   profitBase: number;
 }
 
-function isCartonPackaging(row: PackagingRow): boolean {
-  return /كرتون|كرتونة|ماستر|صندوق|box|carton/i.test(`${row.name} ${row.code}`);
+export function isCartonPackaging(row: PackagingRow): boolean {
+  return /كرتون|كرتونة|ماستر|صندوق|box|carton/i.test(
+    `${row.name} ${row.code} ${row.type ?? ''}`,
+  );
+}
+
+export function resolveVariant(
+  product: Product | undefined,
+  variantId?: string | null,
+): ProductVariant | undefined {
+  if (!product || !variantId) return undefined;
+  return (product.variants ?? []).find((variant) => variant.id === variantId);
+}
+
+/** المواصفات الفعلية للتركيبة المختارة، أو مواصفات المنتج الأساسية عند عدم وجود تركيبة. */
+export function effectiveSpec(product: Product, variant?: ProductVariant) {
+  return {
+    sizeCm: variant?.sizeCm ?? product.sizeCm,
+    heightCm: variant?.heightCm ?? product.heightCm,
+    capacityL: variant?.capacityL ?? product.capacityL,
+    netWeightKg: variant?.netWeightKg ?? product.netWeightKg,
+    grossWeightKg: variant?.grossWeightKg ?? product.grossWeightKg,
+    cbm: variant?.cbm ?? product.cbm,
+    pcsPerCarton: variant?.pcsPerCarton ?? product.pcsPerCarton,
+    barcode: variant?.barcode || product.barcode,
+    sizeLabel: variant?.sizeLabel ?? `${product.sizeCm} سم`,
+    colorName: variant?.colorName ?? '—',
+    colorHex: variant?.colorHex ?? '#c8ccd4',
+  };
+}
+
+/**
+ * الكمية المستهلكة من مادة تعبئة لكل وحدة منتج.
+ * الأولوية: كمية التركيبة ← كمية السجل ← حصة الكرتونة (1 / عدد القطع داخلها).
+ */
+export function packagingUnitQty(
+  row: PackagingRow,
+  variant?: ProductVariant,
+): number {
+  const variantQty = variant?.packagingQty?.[row.id];
+  if (typeof variantQty === 'number' && Number.isFinite(variantQty)) {
+    return Math.max(0, variantQty);
+  }
+  if (typeof row.qtyPerProduct === 'number' && Number.isFinite(row.qtyPerProduct)) {
+    return Math.max(0, row.qtyPerProduct);
+  }
+  if (isCartonPackaging(row)) {
+    const pcs = variant?.pcsPerCarton || row.pcsInside || 1;
+    return 1 / Math.max(1, pcs);
+  }
+  return 1;
 }
 
 export function findSpraysForProduct(db: Database, productCode: string): SprayCoating[] {
@@ -67,30 +123,40 @@ export function findAccessoriesForProduct(db: Database, productCode: string) {
   return db.accessories.filter((item) => item.productCodes.includes(productCode));
 }
 
-/** يحسب عناصر التكلفة تلقائيًا لكل منتج من بياناته المرتبطة (بدون تخزين يدوي). */
-export function computeCostForProduct(db: Database, productCode: string): CostElement {
+/** يحسب عناصر التكلفة تلقائيًا لكل منتج/تركيبة من بياناتها المرتبطة (بدون تخزين يدوي). */
+export function computeCostForProduct(
+  db: Database,
+  productCode: string,
+  variantId?: string | null,
+): CostElement {
+  const product = db.products.find((item) => item.code === productCode);
+  const variant = resolveVariant(product, variantId);
   const raw = findRawForProduct(db, productCode);
-  const rawMaterial = raw ? raw.discWeightKg * raw.pricePerKg : 0;
+  const rawWeight = variant?.rawDiscWeightKg ?? raw?.discWeightKg ?? 0;
+  const rawMaterial = raw ? rawWeight * raw.pricePerKg : 0;
   const accessories = findAccessoriesForProduct(db, productCode).reduce(
     (sum, item) => sum + item.qtyPerProduct * item.unitCost,
     0,
   );
   const packaging = findPackagingForProduct(db, productCode);
-  const carton = packaging.filter(isCartonPackaging).reduce((sum, row) => sum + row.unitCost, 0);
+  const carton = packaging
+    .filter(isCartonPackaging)
+    .reduce((sum, row) => sum + packagingUnitQty(row, variant) * row.unitCost, 0);
   const wrapPlastics = packaging
     .filter((row) => !isCartonPackaging(row))
-    .reduce((sum, row) => sum + row.unitCost, 0);
+    .reduce((sum, row) => sum + packagingUnitQty(row, variant) * row.unitCost, 0);
   const sprayCost = findSpraysForProduct(db, productCode).reduce(
     (sum, row) => sum + row.costPerProduct,
     0,
   );
+  const extra = Math.max(0, variant?.extraCost ?? 0);
   const plastics = wrapPlastics + sprayCost;
-  const direct = rawMaterial + accessories + plastics + carton;
+  const direct = rawMaterial + accessories + plastics + carton + extra;
   const labor = direct * AUTO_LABOR_RATE;
   const overhead = direct * AUTO_OVERHEAD_RATE;
 
   return {
-    id: `auto-${productCode}`,
+    id: `auto-${productCode}${variantId ? `-${variantId}` : ''}`,
     productCode,
     rawMaterial,
     accessories,
@@ -98,11 +164,16 @@ export function computeCostForProduct(db: Database, productCode: string): CostEl
     carton,
     labor,
     overhead,
+    extra,
   };
 }
 
-export function findCostForProduct(db: Database, productCode: string): CostElement {
-  return computeCostForProduct(db, productCode);
+export function findCostForProduct(
+  db: Database,
+  productCode: string,
+  variantId?: string | null,
+): CostElement {
+  return computeCostForProduct(db, productCode, variantId);
 }
 
 export function totalOf(cost: CostElement | undefined): number {
@@ -113,8 +184,42 @@ export function totalOf(cost: CostElement | undefined): number {
     cost.plastics +
     cost.carton +
     cost.labor +
-    cost.overhead
+    cost.overhead +
+    (cost.extra ?? 0)
   );
+}
+
+export interface PricingResult {
+  price: number;
+  pricingMode: PricingMode;
+  pct: number;
+  effectiveMarginPct: number;
+}
+
+/**
+ * سياسة التسعير:
+ * - حتى 99.99% وبوضع "هامش": السعر = التكلفة ÷ (1 - النسبة).
+ * - عند 100% أو أكثر (أو وضع "زيادة"): السعر = التكلفة × (1 + النسبة)، لأن هامش
+ *   100% من سعر البيع غير قابل للتمثيل (قسمة على صفر وما بعدها سالبة).
+ * النطاق المقبول 0% إلى 200% في الحالتين.
+ */
+export function pricingOf(
+  total: number,
+  pct: number,
+  mode: PricingMode = 'margin',
+): PricingResult {
+  const safePct = Math.min(Math.max(Number.isFinite(pct) ? pct : 0, 0), 200);
+  const appliedMode: PricingMode = mode === 'markup' || safePct >= 100 ? 'markup' : 'margin';
+  const price =
+    appliedMode === 'markup'
+      ? total * (1 + safePct / 100)
+      : total / (1 - safePct / 100);
+  return {
+    price,
+    pricingMode: appliedMode,
+    pct: safePct,
+    effectiveMarginPct: price > 0 ? ((price - total) / price) * 100 : 0,
+  };
 }
 
 export function economicsOf(
@@ -122,10 +227,13 @@ export function economicsOf(
   productCodeOrFactor: string | number,
   aluminumFactorOrMargin: number,
   maybeMargin?: number,
+  variantId?: string | null,
+  maybeMode?: PricingMode,
 ): Economics {
   let cost: CostElement | undefined;
   let aluminumFactor: number;
   let marginPct: number;
+  let pricingMode: PricingMode = maybeMode ?? 'margin';
   let sprayCost = 0;
 
   if (
@@ -134,11 +242,12 @@ export function economicsOf(
     typeof (dbOrCost as Database).products !== 'undefined'
   ) {
     const db = dbOrCost as Database;
-    cost = computeCostForProduct(db, productCodeOrFactor);
+    cost = computeCostForProduct(db, productCodeOrFactor, variantId);
     sprayCost = findSpraysForProduct(db, productCodeOrFactor).reduce(
       (sum, row) => sum + row.costPerProduct,
       0,
     );
+    pricingMode = maybeMode ?? db.settings.pricingMode ?? 'margin';
     aluminumFactor = aluminumFactorOrMargin;
     marginPct = maybeMargin ?? 0;
   } else {
@@ -152,6 +261,7 @@ export function economicsOf(
   const rawAdjusted = rawBase * aluminumFactor;
   const accessories = cost?.accessories ?? 0;
   const packagingCost = (cost?.plastics ?? 0) + (cost?.carton ?? 0);
+  const extra = cost?.extra ?? 0;
   const labor = cost?.labor ?? 0;
   const overhead = cost?.overhead ?? 0;
 
@@ -173,9 +283,19 @@ export function economicsOf(
           },
         ]
       : []),
+    ...(extra > 0
+      ? [
+          {
+            key: 'extra',
+            label: 'فرق اللون/الخامة',
+            value: extra,
+            color: COMPONENT_COLORS.extra,
+          },
+        ]
+      : []),
     {
       key: 'packaging',
-      label: sprayCost > 0 ? 'تغليف ومواد مساعدة' : 'تغليف وبلاستيك',
+      label: 'التعبئة والتغليف',
       value: Math.max(packagingCost - sprayCost, 0),
       color: COMPONENT_COLORS.packaging,
     },
@@ -186,13 +306,11 @@ export function economicsOf(
       value: overhead,
       color: COMPONENT_COLORS.overhead,
     },
-  ];
+  ].filter((item) => item.value > 0 || item.key === 'raw' || item.key === 'packaging');
 
   const total = components.reduce((sum, item) => sum + item.value, 0);
-  const totalBase = rawBase + accessories + packagingCost + labor + overhead;
-  const safeMargin = Math.min(Math.max(marginPct, 0), 90);
-  const price = total / (1 - safeMargin / 100);
-  const priceBase = totalBase / (1 - safeMargin / 100);
+  const totalBase = rawBase + accessories + packagingCost + extra + labor + overhead;
+  const pricing = pricingOf(total, marginPct, pricingMode);
 
   return {
     rawBase,
@@ -201,17 +319,30 @@ export function economicsOf(
     components,
     totalBase,
     total,
-    marginPct: safeMargin,
-    price,
-    priceBase,
-    profit: price - total,
-    profitBase: priceBase - totalBase,
+    marginPct: pricing.pct,
+    pricingMode: pricing.pricingMode,
+    effectiveMarginPct: pricing.effectiveMarginPct,
+    price: pricing.price,
+    priceBase:
+      pricing.pricingMode === 'markup'
+        ? totalBase * (1 + pricing.pct / 100)
+        : totalBase / (1 - pricing.pct / 100),
+    profit: pricing.price - total,
+    profitBase:
+      (pricing.pricingMode === 'markup'
+        ? totalBase * (1 + pricing.pct / 100)
+        : totalBase / (1 - pricing.pct / 100)) - totalBase,
   };
 }
 
 export function discCostOf(raw: RawMaterial | undefined, aluminumFactor: number): number {
   if (!raw) return 0;
   return raw.discWeightKg * raw.pricePerKg * aluminumFactor;
+}
+
+/** القدرة الإنتاجية بالساعة لزمن دورة معين. */
+export function unitsPerHour(cycleSeconds: number): number {
+  return cycleSeconds > 0 ? 3600 / cycleSeconds : 0;
 }
 
 export interface ContainerLoad {
@@ -225,28 +356,35 @@ export interface ContainerLoad {
   value: number;
 }
 
-export function containerLoads(product: Product, unitPrice: number): ContainerLoad[] {
+export function containerLoads(
+  product: Product,
+  unitPrice: number,
+  spec?: { cbm: number; grossWeightKg: number; pcsPerCarton: number },
+): ContainerLoad[] {
   const specs = [
     { standard: 'حاوية 20 قدم', volumeCbm: 28, maxTons: 21 },
     { standard: 'حاوية 40 قدم', volumeCbm: 58, maxTons: 26 },
   ];
 
-  const weightPerCarton = product.grossWeightKg * product.pcsPerCarton;
+  const cbm = spec?.cbm ?? product.cbm;
+  const gross = spec?.grossWeightKg ?? product.grossWeightKg;
+  const pcsPerCarton = spec?.pcsPerCarton ?? product.pcsPerCarton;
+  const weightPerCarton = gross * pcsPerCarton;
 
-  return specs.map((spec) => {
-    const byVolume = product.cbm > 0 ? Math.floor(spec.volumeCbm / product.cbm) : 0;
+  return specs.map((item) => {
+    const byVolume = cbm > 0 ? Math.floor(item.volumeCbm / cbm) : 0;
     const byWeight =
-      weightPerCarton > 0 ? Math.floor((spec.maxTons * 1000) / weightPerCarton) : 0;
+      weightPerCarton > 0 ? Math.floor((item.maxTons * 1000) / weightPerCarton) : 0;
     const cartons = Math.max(0, Math.min(byVolume, byWeight));
-    const pieces = cartons * product.pcsPerCarton;
+    const pieces = cartons * pcsPerCarton;
     return {
-      standard: spec.standard,
-      volumeCbm: spec.volumeCbm,
-      maxTons: spec.maxTons,
+      standard: item.standard,
+      volumeCbm: item.volumeCbm,
+      maxTons: item.maxTons,
       cartons,
       pieces,
       weightTons: (cartons * weightPerCarton) / 1000,
-      volumeUsed: cartons * product.cbm,
+      volumeUsed: cartons * cbm,
       value: pieces * unitPrice,
     };
   });
@@ -257,6 +395,7 @@ export function productMargin(
   product: Product,
   marginPct: number,
   aluminumFactor: number,
+  variantId?: string,
 ) {
-  return economicsOf(db, product.code, aluminumFactor, marginPct);
+  return economicsOf(db, product.code, aluminumFactor, marginPct, variantId);
 }
