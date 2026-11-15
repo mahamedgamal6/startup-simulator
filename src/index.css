@@ -232,12 +232,26 @@ input[type='range']::-moz-range-thumb {
     border: none !important;
     width: 100% !important;
     max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
-  .print-break {
+  .print-break,
+  .print-sheet section {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-sheet img {
+    max-width: 100%;
+  }
+
+  .print-sheet .barcode-svg {
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
   }
 
   .print-sheet thead {

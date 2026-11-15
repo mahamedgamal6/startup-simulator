@@ -60,6 +60,9 @@ const PRODUCT_FIELDS: Array<{
   { key: 'cbm', label: 'حجم الكرتونة CBM', type: 'number', step: 0.001 },
   { key: 'pcsPerCarton', label: 'عدد القطع بالكرتونة', type: 'number', step: 1 },
   { key: 'barcode', label: 'الباركود الدولي', wide: true },
+  { key: 'hsCode', label: 'كود HS للتصدير' },
+  { key: 'originCountry', label: 'بلد المنشأ' },
+  { key: 'exportDestination', label: 'وجهة التصدير' },
 ];
 
 const emptyProduct = (): Record<string, string> => ({
@@ -74,6 +77,9 @@ const emptyProduct = (): Record<string, string> => ({
   cbm: '0.04',
   pcsPerCarton: '8',
   barcode: '',
+  hsCode: '',
+  originCountry: '',
+  exportDestination: '',
 });
 
 export function ProductFormModal({

@@ -80,6 +80,9 @@ export function buildTables(db: Database): TableDef[] {
         cbm: 0.04,
         pcsPerCarton: 8,
         barcode: '',
+        hsCode: '',
+        originCountry: '',
+        exportDestination: '',
       },
       fields: [
         { key: 'code', label: 'كود المنتج', type: 'text', required: true, placeholder: '01020020' },
@@ -93,6 +96,9 @@ export function buildTables(db: Database): TableDef[] {
         { key: 'cbm', label: 'حجم الكرتونة CBM', type: 'number', step: 0.001 },
         { key: 'pcsPerCarton', label: 'عدد القطع بالكرتونة', type: 'number', step: 1 },
         { key: 'barcode', label: 'الباركود الدولي', type: 'text' },
+        { key: 'hsCode', label: 'كود HS للتصدير', type: 'text', placeholder: 'مثال: 7615.10' },
+        { key: 'originCountry', label: 'بلد المنشأ', type: 'text', placeholder: 'مصر' },
+        { key: 'exportDestination', label: 'وجهة التصدير', type: 'text', placeholder: 'السعودية / الاتحاد الأوروبي' },
       ],
     },
     {

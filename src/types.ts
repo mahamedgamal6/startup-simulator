@@ -75,6 +75,10 @@ export interface Product extends BaseRow {
   cbm: number;
   pcsPerCarton: number;
   barcode: string;
+  /** بيانات التصدير الاختيارية — تظهر في بطاقة الطباعة عند تسجيلها */
+  hsCode?: string;
+  originCountry?: string;
+  exportDestination?: string;
   /** اختيار الماكينة لكل مرحلة؛ القيمة الفارغة تعني عمل يدوي */
   stageMachines?: Record<string, string>;
   /** زمن وعمالة مخصصان لكل مرحلة داخل بطاقة المنتج */

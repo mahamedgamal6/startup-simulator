@@ -8,12 +8,12 @@ import { useData } from '../lib/db';
 import { docDate, fmt, fmt1, money, pct } from '../lib/format';
 import {
   containerLoads,
-  discCostOf,
   economicsOf,
   effectiveSpec,
   findPackagingForProduct,
   findRawForProduct,
   findSpraysForProduct,
+  computeCostForProduct,
   packagingUnitQty,
   resolveVariant,
 } from '../lib/cost';
@@ -37,39 +37,49 @@ function isValidEan13(value: string) {
 
 function Barcode({ value }: { value: string }) {
   const ref = useRef<SVGSVGElement>(null);
+  const isEan = isValidEan13(value);
 
   useEffect(() => {
     const element = ref.current;
     if (!element || !value.trim()) return;
 
+    // عرض الوحدة يتكيف مع الطول حتى يبقى الباركود كاملًا داخل الإطار.
+    // الهامش 10 وحدات على الأقل من كل جانب = منطقة هدوء (Quiet Zone) صحيحة،
+    // والنص المقروء يُطبع أسفل الأعمدة بواسطة JsBarcode نفسه.
     const options: JsBarcode.Options = {
-      width: 1.6,
-      height: 52,
+      width: isEan ? 1.6 : 1.05,
+      height: 58,
       displayValue: true,
       textMargin: 2,
-      fontSize: 11,
+      fontSize: 10,
       font: 'monospace',
-      margin: 0,
+      fontOptions: 'bold',
+      textAlign: 'center',
+      margin: isEan ? 16 : 11,
+      marginTop: 2,
+      marginBottom: 2,
       background: '#ffffff',
-      lineColor: '#111111',
+      lineColor: '#000000',
     };
 
     try {
       JsBarcode(element, value, {
         ...options,
-        format: isValidEan13(value) ? 'EAN13' : 'CODE128',
+        format: isEan ? 'EAN13' : 'CODE128',
       });
     } catch {
       JsBarcode(element, value, { ...options, format: 'CODE128' });
     }
-  }, [value]);
+  }, [value, isEan]);
 
   return (
     <svg
       ref={ref}
       role="img"
       aria-label={`باركود المنتج ${value}`}
-      className="h-auto max-w-full"
+      data-barcode-value={value}
+      data-barcode-format={isEan ? 'EAN13' : 'CODE128'}
+      className="barcode-svg h-auto max-w-full"
     />
   );
 }
@@ -125,6 +135,36 @@ export function PrintSheet({
   );
   const spraysCost = sprays.reduce((sum, item) => sum + item.costPerProduct, 0);
   const cartonGrossWeight = spec.grossWeightKg * spec.pcsPerCarton;
+  const rawQty = variant?.rawDiscWeightKg ?? raw?.discWeightKg ?? 0;
+  const rawTotal = raw ? rawQty * raw.pricePerKg * db.settings.aluminumFactor : 0;
+  const costModel = computeCostForProduct(db, product.code, variant?.id);
+  const stageWeightTotal = stages.reduce(
+    (sum, stage) => sum + stage.seconds * stage.workers,
+    0,
+  );
+  const stageSecondsTotal = stages.reduce((sum, stage) => sum + stage.seconds, 0);
+  const stageCosts = stages.map((stage) => {
+    const laborShare =
+      stageWeightTotal > 0
+        ? costModel.labor * ((stage.seconds * stage.workers) / stageWeightTotal)
+        : 0;
+    const overheadShare =
+      stageSecondsTotal > 0
+        ? costModel.overhead * (stage.seconds / stageSecondsTotal)
+        : 0;
+    return laborShare + overheadShare;
+  });
+  const stageCostTotal = stageCosts.reduce((sum, value) => sum + value, 0);
+  // تقدير المنصات: منصة 1.2×1.0×1.2 م ≈ 1.44 CBM مع استغلال 85%.
+  const cartonsPerPallet =
+    spec.cbm > 0 ? Math.max(1, Math.floor((1.44 * 0.85) / spec.cbm)) : 0;
+  const packagingImage = (id: string) =>
+    db.images.find((image) => image.ownerTable === 'packaging' && image.ownerId === id)?.dataUrl;
+  const packagingStageLabel: Record<string, string> = {
+    inner: 'تعبئة داخلية',
+    outer: 'تعبئة خارجية',
+    shipping: 'شحن',
+  };
 
   const printStyle = {
     WebkitPrintColorAdjust: 'exact',
@@ -188,7 +228,7 @@ export function PrintSheet({
         </div>
 
         {/* Identity, image, barcode */}
-        <section className="mt-4 grid grid-cols-[120px_1fr_190px] items-start gap-4 rounded-lg border border-slate-300 p-3">
+        <section className="print-break mt-4 grid grid-cols-[120px_1fr_260px] items-start gap-4 rounded-lg border border-slate-300 p-3">
           <div className="flex h-[116px] w-[116px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             {productImage ? (
               <img
@@ -236,7 +276,12 @@ export function PrintSheet({
 
           <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white p-2">
             <Barcode value={spec.barcode} />
-            <p className="text-[8px] font-bold text-slate-500">باركود المنتج — EAN/Code128</p>
+            <p className="text-[8px] font-bold text-slate-500">
+              باركود المنتج — {isValidEan13(spec.barcode) ? 'EAN-13' : 'Code 128'}
+            </p>
+            <p className="num text-[8px] font-bold text-slate-600" dir="ltr">
+              {spec.barcode || '—'}
+            </p>
           </div>
         </section>
 
@@ -283,19 +328,22 @@ export function PrintSheet({
 
         {/* Raw material */}
         <section className="mt-4 print-break">
-          <h4 className={sectionTitle}>المواد الخام المباشرة</h4>
+          <h4 className={sectionTitle}>
+            المواد الخام المباشرة{' '}
+            <span className="num text-[9px] font-bold text-slate-400">
+              ({spec.sizeLabel} / {spec.colorName})
+            </span>
+          </h4>
           <table className="w-full border-collapse text-[8.5px]">
             <thead>
               <tr>
                 <th className={headCell}>كود الخامة</th>
-                <th className={headCell}>اسم الخامة</th>
-                <th className={headCell}>السبيكة</th>
-                <th className={headCell}>قطر القرص</th>
-                <th className={headCell}>سُمك الخام</th>
-                <th className={headCell}>وزن القرص</th>
+                <th className={headCell}>اسم الخامة والسبيكة</th>
+                <th className={headCell}>الكمية المستهلكة / قطعة</th>
+                <th className={headCell}>الوحدة</th>
+                {isCost ? <th className={headCell}>سعر الوحدة</th> : null}
                 <th className={headCell}>نسبة الهالك</th>
-                {isCost ? <th className={headCell}>سعر الكيلو</th> : null}
-                {isCost ? <th className={headCell}>تكلفة القرص</th> : null}
+                {isCost ? <th className={headCell}>إجمالي التكلفة</th> : null}
                 <th className={headCell}>المنتجات المرتبطة</th>
               </tr>
             </thead>
@@ -303,19 +351,18 @@ export function PrintSheet({
               {raw ? (
                 <tr>
                   <td className={`${bodyCell} num font-bold`}>{raw.code}</td>
-                  <td className={`${bodyCell} font-bold`}>{raw.name}</td>
-                  <td className={bodyCell}>{raw.alloy}</td>
-                  <td className={`${bodyCell} num`}>{fmt(raw.diameterCm)} سم</td>
-                  <td className={`${bodyCell} num`}>{fmt1(raw.thicknessMm)} مم</td>
-                  <td className={`${bodyCell} num`}>{raw.discWeightKg.toFixed(3)} كجم</td>
+                  <td className={bodyCell}>
+                    <span className="block font-bold">{raw.name}</span>
+                    <span className="text-[7.5px] text-slate-500">{raw.alloy}</span>
+                  </td>
+                  <td className={`${bodyCell} num font-extrabold`}>{rawQty.toFixed(3)}</td>
+                  <td className={bodyCell}>كجم</td>
+                  {isCost ? (
+                    <td className={`${bodyCell} num`}>{money(raw.pricePerKg)} ج.م/كجم</td>
+                  ) : null}
                   <td className={`${bodyCell} num`}>{pct(raw.wastePct)}</td>
                   {isCost ? (
-                    <td className={`${bodyCell} num`}>{money(raw.pricePerKg)} ج.م</td>
-                  ) : null}
-                  {isCost ? (
-                    <td className={`${bodyCell} num font-extrabold`}>
-                      {money(discCostOf(raw, db.settings.aluminumFactor))} ج.م
-                    </td>
+                    <td className={`${bodyCell} num font-extrabold`}>{money(rawTotal)} ج.م</td>
                   ) : null}
                   <td className={`${bodyCell} num`}>
                     {raw.productCodes.join('، ') || product.code}
@@ -323,13 +370,29 @@ export function PrintSheet({
                 </tr>
               ) : (
                 <tr>
-                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 10 : 8}>
+                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 6}>
                     لا توجد مادة خام مرتبطة بهذا المنتج — أضفها من مركز البيانات.
                   </td>
                 </tr>
               )}
+              {isCost && raw ? (
+                <tr className="bg-slate-100">
+                  <td className={`${bodyCell} font-black`} colSpan={6}>
+                    إجمالي تكلفة الخام المباشر للقطعة الواحدة
+                  </td>
+                  <td className={`${bodyCell} num font-black`}>{money(rawTotal)} ج.م</td>
+                  <td className={bodyCell} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          {raw ? (
+            <p className="mt-1 text-[7.5px] font-medium text-slate-400">
+              وزن القرص المسجل للخامة {raw.discWeightKg.toFixed(3)} كجم — المستهلك لهذه التركيبة{' '}
+              {rawQty.toFixed(3)} كجم. القطر {fmt(raw.diameterCm)} سم والسُمك {fmt1(raw.thicknessMm)} مم.
+              {variant?.rawDiscWeightKg ? ' الوزن مخصص لهذه التركيبة.' : ''}
+            </p>
+          ) : null}
         </section>
 
         {/* Accessories */}
@@ -350,7 +413,7 @@ export function PrintSheet({
                 <th className={headCell}>العدد / قطعة</th>
                 <th className={headCell}>المورد / المنشأ</th>
                 {isCost ? <th className={headCell}>تكلفة الوحدة</th> : null}
-                {isCost ? <th className={headCell}>الإجمالي</th> : null}
+                {isCost ? <th className={headCell}>تكلفة الاستخدام</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -451,7 +514,12 @@ export function PrintSheet({
 
         {/* Packaging */}
         <section className="mt-4 print-break">
-          <h4 className={sectionTitle}>التعبئة والتغليف</h4>
+          <h4 className={sectionTitle}>
+            التعبئة والتغليف{' '}
+            <span className="num text-[9px] font-bold text-slate-400">
+              ({packaging.length} مادة)
+            </span>
+          </h4>
           <div className="mb-1.5 grid grid-cols-4 gap-2 text-[8.5px]">
             <div className="rounded border border-slate-300 p-1.5">
               <span className="block font-bold text-slate-500">حجم الكرتونة</span>
@@ -466,64 +534,87 @@ export function PrintSheet({
               <span className="num font-black">{fmt1(cartonGrossWeight)} كجم</span>
             </div>
             <div className="rounded border border-slate-300 p-1.5">
-              <span className="block font-bold text-slate-500">مكونات التغليف</span>
-              <span className="num font-black">{packaging.length} صنف</span>
+              <span className="block font-bold text-slate-500">تكلفة التعبئة / قطعة</span>
+              <span className="num font-black">{isCost ? `${money(packagingCost)} ج.م` : '—'}</span>
             </div>
           </div>
-          <table className="w-full border-collapse text-[8.5px]">
+          <table className="w-full border-collapse text-[8px]">
             <thead>
               <tr>
+                <th className={headCell}>الصورة</th>
                 <th className={headCell}>الكود</th>
-                <th className={headCell}>الصنف</th>
-                <th className={headCell}>الأبعاد (طول × عرض × ارتفاع)</th>
-                <th className={headCell}>الوزن الفارغ</th>
-                <th className={headCell}>القطع الداخلية</th>
+                <th className={headCell}>الصنف والنوع</th>
+                <th className={headCell}>الأبعاد</th>
                 <th className={headCell}>الكمية المستهلكة</th>
+                <th className={headCell}>الوحدة</th>
                 {isCost ? <th className={headCell}>سعر الوحدة</th> : null}
                 {isCost ? <th className={headCell}>تكلفة الاستخدام</th> : null}
+                <th className={headCell}>مرحلة الاستخدام</th>
               </tr>
             </thead>
             <tbody>
               {packaging.length ? (
-                packaging.map((item) => (
-                  <tr key={item.id}>
-                    <td className={`${bodyCell} num font-bold`}>{item.code}</td>
-                    <td className={`${bodyCell} font-bold`}>{item.name}</td>
-                    <td className={`${bodyCell} num`}>
-                      {fmt(item.lengthCm)} × {fmt(item.widthCm)} × {fmt(item.heightCm)} سم
-                    </td>
-                    <td className={`${bodyCell} num`}>{fmt1(item.emptyWeightKg)} كجم</td>
-                    <td className={`${bodyCell} num`}>{fmt(item.pcsInside)}</td>
-                    <td className={`${bodyCell} num`}>
-                      {packagingUnitQty(item, variant ?? undefined).toFixed(2)} {item.unit || 'قطعة'}
-                    </td>
-                    {isCost ? (
-                      <td className={`${bodyCell} num`}>{money(item.unitCost)} ج.م</td>
-                    ) : null}
-                    {isCost ? (
-                      <td className={`${bodyCell} num font-extrabold`}>
-                        {money(packagingUnitQty(item, variant ?? undefined) * item.unitCost)} ج.م
+                packaging.map((item) => {
+                  const qty = packagingUnitQty(item, variant ?? undefined);
+                  const image = packagingImage(item.id);
+                  return (
+                    <tr key={item.id}>
+                      <td className={`${bodyCell} text-center`}>
+                        {image ? (
+                          <img
+                            src={image}
+                            alt={item.name}
+                            className="mx-auto h-8 w-8 object-contain"
+                          />
+                        ) : (
+                          <span className="text-[7px] text-slate-400">—</span>
+                        )}
                       </td>
-                    ) : null}
-                  </tr>
-                ))
+                      <td className={`${bodyCell} num font-bold`}>{item.code}</td>
+                      <td className={bodyCell}>
+                        <span className="block font-bold">{item.name}</span>
+                        <span className="text-[7px] text-slate-500">{item.type || 'مادة تغليف'}</span>
+                      </td>
+                      <td className={`${bodyCell} num text-[7.5px]`}>
+                        {fmt(item.lengthCm)}×{fmt(item.widthCm)}×{fmt(item.heightCm)} سم
+                      </td>
+                      <td className={`${bodyCell} num font-extrabold`}>{qty.toFixed(2)}</td>
+                      <td className={bodyCell}>{item.unit || 'قطعة'}</td>
+                      {isCost ? (
+                        <td className={`${bodyCell} num`}>{money(item.unitCost)} ج.م</td>
+                      ) : null}
+                      {isCost ? (
+                        <td className={`${bodyCell} num font-extrabold`}>
+                          {money(qty * item.unitCost)} ج.م
+                        </td>
+                      ) : null}
+                      <td className={bodyCell}>
+                        {packagingStageLabel[item.stage] ?? 'تعبئة داخلية'}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 6}>
+                  <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 9 : 7}>
                     لا توجد مكونات تغليف مرتبطة بهذا المنتج.
                   </td>
                 </tr>
               )}
               {isCost && packaging.length ? (
                 <tr className="bg-slate-100">
-                  <td className={`${bodyCell} font-black`} colSpan={7}>
-                    إجمالي تكلفة التغليف للقطعة الواحدة
+                  <td className={`${bodyCell} font-black`} colSpan={8}>
+                    إجمالي تكلفة التعبئة والتغليف للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(packagingCost)} ج.م</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+          <p className="mt-1 text-[7.5px] font-medium text-slate-400">
+            الكمية المستهلكة للكرتونة = 1 ÷ عدد القطع بالكرتونة ({fmt(spec.pcsPerCarton)})
+            {' '}= {(1 / Math.max(1, spec.pcsPerCarton)).toFixed(3)} كرتونة للقطعة. صورة المادة تظهر عند تسجيلها.
+          </p>
         </section>
 
         {/* Cost */}
@@ -581,16 +672,59 @@ export function PrintSheet({
         {/* Shipping & export */}
         <section className="mt-4 print-break">
           <h4 className={sectionTitle}>بيانات الشحن والتصدير</h4>
-          <table className="w-full border-collapse text-[8.5px]">
+          <div className="grid grid-cols-6 gap-1.5 text-[8px]">
+            {[
+              ['القطع / كرتونة', `${fmt(spec.pcsPerCarton)}`],
+              ['كراتين 40 قدم', `${fmt(loads[1]?.cartons ?? 0)}`],
+              ['وزن صافٍ / كرتونة', `${fmt1(spec.netWeightKg * spec.pcsPerCarton)} كجم`],
+              ['وزن قائم / كرتونة', `${fmt1(cartonGrossWeight)} كجم`],
+              ['حجم الكرتونة', `${spec.cbm} CBM`],
+              ['المنصات (40 قدم)*', `${cartonsPerPallet ? Math.ceil((loads[1]?.cartons ?? 0) / cartonsPerPallet) : 0}`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded border border-slate-300 p-1.5">
+                <span className="block font-bold text-slate-500">{label}</span>
+                <span className="num font-black">{value}</span>
+              </div>
+            ))}
+          </div>
+          <table className="mt-1.5 w-full border-collapse text-[8px]">
+            <thead>
+              <tr>
+                <th className={headCell}>بيان التصدير</th>
+                <th className={headCell}>القيمة المسجلة</th>
+                <th className={headCell}>بيان التصدير</th>
+                <th className={headCell}>القيمة المسجلة</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className={`${bodyCell} font-bold`}>كود HS</td>
+                <td className={bodyCell}>{product.hsCode?.trim() || 'غير مسجل'}</td>
+                <td className={`${bodyCell} font-bold`}>بلد المنشأ</td>
+                <td className={bodyCell}>{product.originCountry?.trim() || 'غير مسجل'}</td>
+              </tr>
+              <tr>
+                <td className={`${bodyCell} font-bold`}>وجهة التصدير</td>
+                <td className={bodyCell}>{product.exportDestination?.trim() || 'غير محددة'}</td>
+                <td className={`${bodyCell} font-bold`}>الوزن الصافي / قائم للحاوية</td>
+                <td className={`${bodyCell} num`}>
+                  {fmt1((loads[1]?.pieces ?? 0) * spec.netWeightKg)} / {fmt1((loads[1]?.pieces ?? 0) * spec.grossWeightKg)} كجم
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <table className="mt-1.5 w-full border-collapse text-[8px]">
             <thead>
               <tr>
                 <th className={headCell}>الحاوية</th>
-                <th className={headCell}>السعة (CBM)</th>
-                <th className={headCell}>الحمولة القصوى</th>
-                <th className={headCell}>عدد الكراتين</th>
-                <th className={headCell}>عدد القطع</th>
-                <th className={headCell}>وزن الشحنة</th>
+                <th className={headCell}>السعة</th>
+                <th className={headCell}>الحد الأقصى</th>
+                <th className={headCell}>الكراتين</th>
+                <th className={headCell}>القطع</th>
+                <th className={headCell}>الوزن الصافي</th>
+                <th className={headCell}>الوزن القائم</th>
                 <th className={headCell}>الحجم المستخدم</th>
+                <th className={headCell}>المنصات*</th>
                 {isCost ? <th className={headCell}>القيمة التقديرية</th> : null}
                 <th className={headCell}>الجاهزية</th>
               </tr>
@@ -599,12 +733,16 @@ export function PrintSheet({
               {loads.map((load) => (
                 <tr key={load.standard}>
                   <td className={`${bodyCell} font-bold`}>{load.standard}</td>
-                  <td className={`${bodyCell} num`}>{fmt(load.volumeCbm)}</td>
+                  <td className={`${bodyCell} num`}>{fmt(load.volumeCbm)} CBM</td>
                   <td className={`${bodyCell} num`}>{fmt(load.maxTons)} طن</td>
                   <td className={`${bodyCell} num font-bold`}>{fmt(load.cartons)}</td>
                   <td className={`${bodyCell} num font-bold`}>{fmt(load.pieces)}</td>
-                  <td className={`${bodyCell} num`}>{fmt1(load.weightTons)} طن</td>
+                  <td className={`${bodyCell} num`}>{fmt1(load.pieces * spec.netWeightKg)} كجم</td>
+                  <td className={`${bodyCell} num`}>{fmt1(load.weightTons * 1000)} كجم</td>
                   <td className={`${bodyCell} num`}>{fmt1(load.volumeUsed)} CBM</td>
+                  <td className={`${bodyCell} num`}>
+                    {cartonsPerPallet ? Math.ceil(load.cartons / cartonsPerPallet) : 0}
+                  </td>
                   {isCost ? (
                     <td className={`${bodyCell} num font-extrabold`}>{money(load.value)} ج.م</td>
                   ) : null}
@@ -616,8 +754,9 @@ export function PrintSheet({
             </tbody>
           </table>
           <p className="mt-1 text-[7.5px] font-medium text-slate-400">
-            الحساب مبني على أبعاد الكرتونة ({product.cbm} CBM) والوزن بعد التعبئة
-            ({fmt1(cartonGrossWeight)} كجم للكرتونة) وسعر البيع المقترح.
+            الحساب من أبعاد ووزن التركيبة المختارة ({spec.sizeLabel} / {spec.colorName})، وسعر البيع المقترح.
+            * تقدير المنصات: منصة 1.2×1.0×1.2 م ≈ 1.44 CBM باستغلال 85% ({cartonsPerPallet} كرتونة/منصة).
+            بيانات HS والمنشأ والوجهة تُطبع من بطاقة المنتج، وتظهر «غير مسجل» عند غيابها.
           </p>
         </section>
 
@@ -638,6 +777,7 @@ export function PrintSheet({
                 <th className={headCell}>العمال</th>
                 <th className={headCell}>الزمن (ث)</th>
                 <th className={headCell}>التراكمي (ث)</th>
+                {isCost ? <th className={headCell}>تكلفة التشغيل</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -650,7 +790,7 @@ export function PrintSheet({
                       <tr>
                         <td
                           className="border border-slate-300 bg-brand-soft p-1 text-[8px] font-black text-brand-dark"
-                          colSpan={8}
+                          colSpan={isCost ? 9 : 8}
                         >
                           {STAGE_GROUPS[stage.group].label}
                         </td>
@@ -671,20 +811,36 @@ export function PrintSheet({
                       <td className={`${bodyCell} num`}>{stage.workers}</td>
                       <td className={`${bodyCell} num`}>{stage.seconds}</td>
                       <td className={`${bodyCell} num`}>{stage.cumulative}</td>
+                      {isCost ? (
+                        <td className={`${bodyCell} num`}>{money(stageCosts[index])} ج.م</td>
+                      ) : null}
                     </tr>
                   </Fragment>
                 );
               })}
               <tr className="bg-slate-100">
-                <td className={`${bodyCell} font-black`} colSpan={6}>
+                <td className={`${bodyCell} font-black`} colSpan={isCost ? 8 : 7}>
                   إجمالي زمن التصنيع للقطعة الواحدة
                 </td>
-                <td className={`${bodyCell} num font-black`} colSpan={2}>
+                <td className={`${bodyCell} num font-black`}>
                   {cycle} ثانية — {formatCycle(cycle)}
                 </td>
               </tr>
+              {isCost ? (
+                <tr className="bg-slate-100">
+                  <td className={`${bodyCell} font-black`} colSpan={8}>
+                    إجمالي تكلفة التشغيل الموزعة (عمالة + مصاريف غير مباشرة)
+                  </td>
+                  <td className={`${bodyCell} num font-black`}>{money(stageCostTotal)} ج.م</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          <p className="mt-1 text-[7.5px] font-medium text-slate-400">
+            تكلفة كل مرحلة = حصة العمالة موزعة حسب (الزمن × عدد العمال) + حصة المصاريف غير المباشرة
+            موزعة حسب الزمن. مجموع المراحل = إجمالي العمالة والمصاريف غير المباشرة في تفكيك التكلفة
+            {isCost ? ` (${money(stageCostTotal)} ج.م)` : ''}.
+          </p>
         </section>
 
         {/* Quality */}
