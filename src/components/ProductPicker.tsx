@@ -11,12 +11,21 @@ export function ProductPicker({
   onChange,
   compact = false,
   className,
+  sizeOptions,
+  activeSizeCm,
+  activeCapacityL,
+  onSelectSize,
 }: {
   products: Product[];
   value: string;
   onChange: (code: string) => void;
   compact?: boolean;
   className?: string;
+  /** مقاسات التركيبات المسجلة للمنتج الحالي؛ عند تمريرها لا يتم الانتقال لمنتج آخر. */
+  sizeOptions?: number[];
+  activeSizeCm?: number;
+  activeCapacityL?: number;
+  onSelectSize?: (sizeCm: number) => void;
 }) {
   const { db } = useData();
   const [open, setOpen] = useState(false);
@@ -59,12 +68,19 @@ export function ProductPicker({
     );
   }, [products, query]);
 
-  const sizes = useMemo(
-    () => Array.from(new Set(products.map((product) => product.sizeCm))).sort((a, b) => a - b),
-    [products],
-  );
+  const sizes = useMemo(() => {
+    if (sizeOptions?.length) return [...new Set(sizeOptions)].sort((a, b) => a - b);
+    return Array.from(new Set(products.map((product) => product.sizeCm))).sort((a, b) => a - b);
+  }, [products, sizeOptions]);
+
+  const selectedSize = activeSizeCm ?? current?.sizeCm;
+  const selectedCapacity = activeCapacityL ?? current?.capacityL;
 
   const pickSize = (size: number) => {
+    if (onSelectSize) {
+      onSelectSize(size);
+      return;
+    }
     if (current?.sizeCm === size) return;
     const candidate =
       products.find(
@@ -102,9 +118,9 @@ export function ProductPicker({
             <span className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
               <span className="num">{current?.code}</span>
               <span className="text-slate-300">•</span>
-              <span>مقاس {current?.sizeCm} سم</span>
+              <span>مقاس {selectedSize} سم</span>
               <span className="text-slate-300">•</span>
-              <span>{current?.capacityL} لتر</span>
+              <span>{selectedCapacity} لتر</span>
             </span>
           </span>
           <ChevronDown
@@ -181,9 +197,11 @@ export function ProductPicker({
 
       {!compact ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500">المقاس:</span>
+          <span className="text-[11px] font-bold text-slate-500">
+            {onSelectSize ? 'مقاسات المنتج:' : 'المقاس:'}
+          </span>
           {sizes.map((size) => {
-            const active = current?.sizeCm === size;
+            const active = (activeSizeCm ?? current?.sizeCm) === size;
             return (
               <button
                 key={size}

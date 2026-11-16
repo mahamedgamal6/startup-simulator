@@ -168,6 +168,29 @@ export function PassportScreen({
     );
   }
 
+  const variantSizes = Array.from(
+    new Set(
+      (product.variants ?? [])
+        .filter((item) => item.active !== false)
+        .map((item) => item.sizeCm),
+    ),
+  ).sort((a, b) => a - b);
+  const sizeOptions = variantSizes.length ? variantSizes : [product.sizeCm];
+
+  const handleSelectSize = (sizeCm: number) => {
+    const candidates = (product.variants ?? []).filter(
+      (item) => item.active !== false && item.sizeCm === sizeCm,
+    );
+    const next = candidates.find((item) => item.colorId === variant?.colorId) ?? candidates[0];
+    if (!next && sizeCm === spec.sizeCm) return;
+    if (!next) {
+      toast('هذا المقاس غير مسجّل كتركيبة لهذا المنتج. أضفه من لوحة المقاسات والألوان.', 'error');
+      return;
+    }
+    setVariant(next);
+    toast(`تم اختيار مقاس ${sizeCm} سم — ${next.colorName} وتحديث التكلفة`);
+  };
+
   const handlePrint = () =>
     onPrint({
       code: product.code,
@@ -433,6 +456,10 @@ export function PassportScreen({
             value={product.code}
             onChange={onSelect}
             className="min-w-0 flex-1"
+            sizeOptions={sizeOptions}
+            activeSizeCm={spec.sizeCm}
+            activeCapacityL={spec.capacityL}
+            onSelectSize={handleSelectSize}
           />
           <div className="flex flex-wrap items-center gap-2">
             {canCreateProduct ? (
