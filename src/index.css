@@ -256,7 +256,7 @@ input[type='range']::-moz-range-thumb {
 
   /* ضغط جدول المراحل فقط ليستوعب الفحص والتوقيعات في الصفحة نفسها */
   .print-stages > h4 {
-    margin-bottom: 4px !important;
+    margin-bottom: 5px !important;
   }
 
   .print-stages > p {
@@ -265,9 +265,9 @@ input[type='range']::-moz-range-thumb {
 
   .print-stages table th,
   .print-stages table td {
-    padding: 1px 3px !important;
-    font-size: 7.5px !important;
-    line-height: 1.2 !important;
+    padding: 1.5px 3px !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
   }
 
   .print-sheet thead {
