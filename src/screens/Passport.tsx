@@ -143,6 +143,7 @@ export function PassportScreen({
   }>({ open: false, accessory: null });
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
+  const [addSizeSignal, setAddSizeSignal] = useState(0);
   const [deleteAccessory, setDeleteAccessory] = useState<Accessory | null>(null);
   const [machinesOpen, setMachinesOpen] = useState(false);
   const [machineDraft, setMachineDraft] = useState<Record<string, string>>({});
@@ -460,6 +461,7 @@ export function PassportScreen({
             activeSizeCm={spec.sizeCm}
             activeCapacityL={spec.capacityL}
             onSelectSize={handleSelectSize}
+            onAddSize={canEditProduct ? () => setAddSizeSignal((value) => value + 1) : undefined}
           />
           <div className="flex flex-wrap items-center gap-2">
             {canCreateProduct ? (
@@ -501,6 +503,7 @@ export function PassportScreen({
           selectedVariantId={variant?.id}
           onSelect={setVariant}
           onSaved={log}
+          addSizeSignal={addSizeSignal}
         />
       </Card>
 

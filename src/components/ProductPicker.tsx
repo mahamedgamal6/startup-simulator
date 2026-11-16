@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, PackageSearch } from 'lucide-react';
+import { Check, ChevronDown, PackageSearch, Plus } from 'lucide-react';
 import type { Product } from '../types';
 import { useData } from '../lib/db';
 import { FAMILY_COLORS, ProductArt } from './ProductArt';
@@ -15,6 +15,7 @@ export function ProductPicker({
   activeSizeCm,
   activeCapacityL,
   onSelectSize,
+  onAddSize,
 }: {
   products: Product[];
   value: string;
@@ -26,6 +27,7 @@ export function ProductPicker({
   activeSizeCm?: number;
   activeCapacityL?: number;
   onSelectSize?: (sizeCm: number) => void;
+  onAddSize?: () => void;
 }) {
   const { db } = useData();
   const [open, setOpen] = useState(false);
@@ -214,6 +216,17 @@ export function ProductPicker({
               </button>
             );
           })}
+          {onAddSize ? (
+            <button
+              type="button"
+              onClick={onAddSize}
+              className="chip chip-muted"
+              title="إضافة مقاس جديد لهذا المنتج"
+            >
+              <Plus size={12} />
+              <span className="text-[10px]">مقاس</span>
+            </button>
+          ) : null}
           {current ? (
             <Badge tone="slate" className="mr-auto">
               {current.family}

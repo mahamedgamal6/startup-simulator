@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Palette, Plus, Ruler, Save, Trash2 } from 'lucide-react';
 import { Button, Modal, SectionHeading, cn, useToast } from './ui';
 import { makeId, useData } from '../lib/db';
@@ -30,14 +30,16 @@ export function VariantsPanel({
   selectedVariantId,
   onSelect,
   onSaved,
+  addSizeSignal = 0,
 }: {
   product: Product;
   canEdit: boolean;
   selectedVariantId?: string;
   onSelect: (variant: ProductVariant | null) => void;
   onSaved: (action: string, detail: string) => void;
+  addSizeSignal?: number;
 }) {
-  const { updateProductVariants } = useData();
+  const { db, updateProductVariants } = useData();
   const toast = useToast();
   const variants = product.variants ?? [];
   const sizes = useMemo<ProductSize[]>(() => {
@@ -84,6 +86,25 @@ export function VariantsPanel({
   const [sizeDraft, setSizeDraft] = useState({ label: '', sizeCm: '', heightCm: '', capacityL: '' });
   const [colorDraft, setColorDraft] = useState({ name: '', hex: '#c7ccd6', imageUrl: '' });
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickDraft, setQuickDraft] = useState({
+    sizeCm: '',
+    heightCm: '',
+    capacityL: '',
+    colorId: '',
+  });
+
+  useEffect(() => {
+    if (!addSizeSignal) return;
+    const tallest = sizes.reduce((max, size) => Math.max(max, size.sizeCm), product.sizeCm);
+    setQuickDraft({
+      sizeCm: String(tallest + 2),
+      heightCm: String(Number((product.heightCm + 1.2).toFixed(1))),
+      capacityL: String(Number((product.capacityL * 1.35).toFixed(1))),
+      colorId: colors[0]?.id ?? '',
+    });
+    setQuickOpen(true);
+  }, [addSizeSignal]);
 
   const availableColors = colors.filter((color) =>
     variants.some((variant) => variant.sizeId === sizeId && variant.colorId === color.id),
@@ -219,6 +240,74 @@ export function VariantsPanel({
     toast('تمت إضافة المقاس. أضف تركيبة له لربطه بلون.');
     setSizeOpen(false);
     setSizeDraft({ label: '', sizeCm: '', heightCm: '', capacityL: '' });
+  };
+
+  const addQuickSize = async () => {
+    const sizeCm = num(quickDraft.sizeCm);
+    if (sizeCm <= 0) {
+      toast('أدخل مقاسًا صحيحًا بالسنتيمتر', 'error');
+      return;
+    }
+    const color = colors.find((item) => item.id === quickDraft.colorId) ?? colors[0];
+    if (!color) {
+      toast('أضف لونًا أولًا من لوحة المقاسات والألوان', 'error');
+      return;
+    }
+    const existingSize = sizes.find((size) => Math.abs(size.sizeCm - sizeCm) < 0.01);
+    const nextSize: ProductSize =
+      existingSize ?? {
+        id: makeId('size'),
+        label: `${sizeCm} سم`,
+        sizeCm,
+        heightCm: num(quickDraft.heightCm) || product.heightCm,
+        capacityL: num(quickDraft.capacityL) || product.capacityL,
+        barcode: '',
+        active: true,
+      };
+    const nextSizes = existingSize ? sizes : [...sizes, nextSize];
+    const existingVariant = variants.find(
+      (variant) => variant.sizeId === nextSize.id && variant.colorId === color.id,
+    );
+    if (existingVariant) {
+      onSelect(existingVariant);
+      setQuickOpen(false);
+      toast('هذا المقاس واللون مسجلان بالفعل');
+      return;
+    }
+    const ratio = Math.pow(sizeCm / Math.max(product.sizeCm, 1), 1.8);
+    const baseRaw = db.rawMaterials.find((item) => item.productCodes.includes(product.code));
+    const nextVariant: ProductVariant = {
+      id: makeId('var'),
+      productId: product.id,
+      sizeId: nextSize.id,
+      colorId: color.id,
+      sizeLabel: nextSize.label,
+      colorName: color.name,
+      colorHex: color.hex,
+      sizeCm,
+      heightCm: nextSize.heightCm,
+      capacityL: nextSize.capacityL,
+      netWeightKg: Number((product.netWeightKg * ratio).toFixed(3)),
+      grossWeightKg: Number((product.grossWeightKg * ratio).toFixed(3)),
+      cbm: Number((product.cbm * Math.pow(ratio, 1.2)).toFixed(3)),
+      pcsPerCarton: Math.max(
+        1,
+        Math.round(product.pcsPerCarton / Math.pow(sizeCm / Math.max(product.sizeCm, 1), 1.5)),
+      ),
+      barcode: product.barcode ? `${product.barcode}-${sizeCm}` : '',
+      rawDiscWeightKg: baseRaw
+        ? Number((baseRaw.discWeightKg * ratio).toFixed(3))
+        : undefined,
+      extraCost: 0,
+      packagingQty: {},
+      active: true,
+    };
+    const ok = await persist(nextSizes, colors, [...variants, nextVariant]);
+    if (!ok) return;
+    onSelect(nextVariant);
+    onSaved('إضافة مقاس سريع', `${product.code} — ${nextSize.label} / ${color.name}`);
+    toast(`تمت إضافة مقاس ${nextSize.label} وتركيبته وتحديث التكلفة`);
+    setQuickOpen(false);
   };
 
   const addColor = async () => {
@@ -374,6 +463,38 @@ export function VariantsPanel({
           ) : null}
         </>
       )}
+
+      <Modal
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        title="إضافة مقاس لهذا المنتج"
+        subtitle="يُنشئ المقاس وتركيبته مباشرة ويحدّث التكلفة دون تغيير كود المنتج."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setQuickOpen(false)}>إلغاء</Button>
+            <Button onClick={addQuickSize}><Save size={15} /> إضافة المقاس</Button>
+          </>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="المقاس (سم)">
+            <input className="input num" inputMode="decimal" value={quickDraft.sizeCm} onChange={(e) => setQuickDraft({ ...quickDraft, sizeCm: e.target.value })} />
+          </Field>
+          <Field label="اللون">
+            <select className="input" value={quickDraft.colorId} onChange={(e) => setQuickDraft({ ...quickDraft, colorId: e.target.value })}>
+              {colors.map((color) => (
+                <option key={color.id} value={color.id}>{color.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="الارتفاع (سم)">
+            <input className="input num" inputMode="decimal" value={quickDraft.heightCm} onChange={(e) => setQuickDraft({ ...quickDraft, heightCm: e.target.value })} />
+          </Field>
+          <Field label="السعة (لتر)">
+            <input className="input num" inputMode="decimal" value={quickDraft.capacityL} onChange={(e) => setQuickDraft({ ...quickDraft, capacityL: e.target.value })} />
+          </Field>
+        </div>
+      </Modal>
 
       <Modal
         open={sizeOpen}
