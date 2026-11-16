@@ -797,7 +797,7 @@ export function PrintSheet({
         </section>
 
         {/* Manufacturing stages */}
-        <section className="mt-4 print-break">
+        <section className="print-stages mt-4 print-break">
           <h4 className={sectionTitle}>
             مراحل التصنيع بالتفصيل{' '}
             <span className="num text-[9px] font-bold text-slate-400">({stages.length} مرحلة)</span>

@@ -254,6 +254,22 @@ input[type='range']::-moz-range-thumb {
     overflow: visible;
   }
 
+  /* ضغط جدول المراحل فقط ليستوعب الفحص والتوقيعات في الصفحة نفسها */
+  .print-stages > h4 {
+    margin-bottom: 4px !important;
+  }
+
+  .print-stages > p {
+    margin-top: 2px !important;
+  }
+
+  .print-stages table th,
+  .print-stages table td {
+    padding: 1px 3px !important;
+    font-size: 7.5px !important;
+    line-height: 1.2 !important;
+  }
+
   .print-sheet thead {
     display: table-header-group;
   }
