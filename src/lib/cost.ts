@@ -74,7 +74,7 @@ export function effectiveSpec(product: Product, variant?: ProductVariant) {
     pcsPerCarton: variant?.pcsPerCarton ?? product.pcsPerCarton,
     barcode: variant?.barcode || product.barcode,
     sizeLabel: variant?.sizeLabel ?? `${product.sizeCm} سم`,
-    colorName: variant?.colorName ?? '—',
+    colorName: variant?.colorName ?? product.colors?.find((color) => color.active !== false)?.name ?? 'بدون لون',
     colorHex: variant?.colorHex ?? '#c8ccd4',
   };
 }

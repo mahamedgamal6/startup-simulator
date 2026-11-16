@@ -198,7 +198,7 @@ function loadDatabase(): Database {
     if (!stored)
       return withComputedCosts({
         ...clone(seedDatabase),
-        products: applyVariantStore(clone(seedDatabase.products)),
+        products: applyVariantStore(clone(seedDatabase.products)).map(withProductExportData),
         packaging: applyPackagingMeta(clone(seedDatabase.packaging)),
         sprayCoatings: loadLocalSprays(),
       });
@@ -227,7 +227,7 @@ function loadDatabase(): Database {
         ...product,
         stageMachines: product.stageMachines ?? {},
         stageOverrides: product.stageOverrides ?? {},
-      }))),
+      }))).map(withProductExportData),
       packaging: applyPackagingMeta(merged.packaging ?? []),
       images: withRawMaterialDefaultImages(
         withAccessoryDefaultImages(
@@ -249,12 +249,33 @@ function loadDatabase(): Database {
   }
 }
 
+const PRODUCT_EXPORT_FALLBACK = {
+  hsCode: '7615.10.00',
+  originCountry: 'مصر',
+  exportDestination: 'حسب طلب العميل',
+};
+
+/** يمنع طباعة حقول تصدير فارغة للمنتجات القديمة أو المنتجات الجديدة غير المكتملة. */
+const withProductExportData = (product: Product): Product => {
+  const seed = seedDatabase.products.find((row) => row.code === product.code);
+  return {
+    ...product,
+    hsCode: product.hsCode?.trim() || seed?.hsCode || PRODUCT_EXPORT_FALLBACK.hsCode,
+    originCountry:
+      product.originCountry?.trim() || seed?.originCountry || PRODUCT_EXPORT_FALLBACK.originCountry,
+    exportDestination:
+      product.exportDestination?.trim() ||
+      seed?.exportDestination ||
+      PRODUCT_EXPORT_FALLBACK.exportDestination,
+  };
+};
+
 const normalizeProducts = (rows: Product[] | null | undefined): Product[] =>
   (Array.isArray(rows) ? rows : []).map((product) => ({
     ...product,
     stageMachines: product.stageMachines ?? {},
     stageOverrides: product.stageOverrides ?? {},
-  }));
+  })).map(withProductExportData);
 
 const normalizeAccessories = (rows: Accessory[] | null | undefined): Accessory[] =>
   (Array.isArray(rows) ? rows : []).map((accessory) => ({

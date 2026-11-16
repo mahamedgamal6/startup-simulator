@@ -86,6 +86,15 @@ export function VariantsPanel({
   const [sizeDraft, setSizeDraft] = useState({ label: '', sizeCm: '', heightCm: '', capacityL: '' });
   const [colorDraft, setColorDraft] = useState({ name: '', hex: '#c7ccd6', imageUrl: '' });
   const [draft, setDraft] = useState<Record<string, string>>({});
+
+  // مزامنة لوحة المقاسات مع المقاس/اللون المختار من شريط المقاسات أعلى البطاقة.
+  useEffect(() => {
+    if (!selectedVariantId) return;
+    const selected = variants.find((variant) => variant.id === selectedVariantId);
+    if (!selected) return;
+    setSizeId(selected.sizeId);
+    setColorId(selected.colorId);
+  }, [selectedVariantId, variants]);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickDraft, setQuickDraft] = useState({
     sizeCm: '',

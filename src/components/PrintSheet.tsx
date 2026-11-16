@@ -26,51 +26,33 @@ export interface PrintPayload {
   mode: 'cost' | 'technical';
 }
 
-function isValidEan13(value: string) {
-  if (!/^\d{13}$/.test(value)) return false;
-  const digits = value.split('').map(Number);
-  const sum = digits
-    .slice(0, 12)
-    .reduce((total, digit, index) => total + digit * (index % 2 === 0 ? 1 : 3), 0);
-  return (10 - (sum % 10)) % 10 === digits[12];
-}
-
 function Barcode({ value }: { value: string }) {
   const ref = useRef<SVGSVGElement>(null);
-  const isEan = isValidEan13(value);
 
   useEffect(() => {
     const element = ref.current;
     if (!element || !value.trim()) return;
 
-    // عرض الوحدة يتكيف مع الطول حتى يبقى الباركود كاملًا داخل الإطار.
-    // الهامش 10 وحدات على الأقل من كل جانب = منطقة هدوء (Quiet Zone) صحيحة،
+    // Code 128 مع هامش 11 وحدة على الأقل من كل جانب = منطقة هدوء صحيحة،
     // والنص المقروء يُطبع أسفل الأعمدة بواسطة JsBarcode نفسه.
     const options: JsBarcode.Options = {
-      width: isEan ? 1.6 : 1.05,
-      height: 58,
+      width: 1.15,
+      height: 62,
       displayValue: true,
       textMargin: 2,
       fontSize: 10,
       font: 'monospace',
       fontOptions: 'bold',
       textAlign: 'center',
-      margin: isEan ? 16 : 11,
+      margin: 11,
       marginTop: 2,
       marginBottom: 2,
       background: '#ffffff',
       lineColor: '#000000',
     };
 
-    try {
-      JsBarcode(element, value, {
-        ...options,
-        format: isEan ? 'EAN13' : 'CODE128',
-      });
-    } catch {
-      JsBarcode(element, value, { ...options, format: 'CODE128' });
-    }
-  }, [value, isEan]);
+    JsBarcode(element, value, { ...options, format: 'CODE128' });
+  }, [value]);
 
   return (
     <svg
@@ -78,7 +60,7 @@ function Barcode({ value }: { value: string }) {
       role="img"
       aria-label={`باركود المنتج ${value}`}
       data-barcode-value={value}
-      data-barcode-format={isEan ? 'EAN13' : 'CODE128'}
+      data-barcode-format="CODE128"
       className="barcode-svg h-auto max-w-full"
     />
   );
@@ -97,8 +79,11 @@ export function PrintSheet({
   const product = db.products.find((item) => item.code === payload.code);
   if (!product) return null;
 
-  const variant = resolveVariant(product, payload.variantId);
+  const variant =
+    resolveVariant(product, payload.variantId) ??
+    (product.variants ?? []).find((item) => item.active !== false);
   const spec = effectiveSpec(product, variant ?? undefined);
+  const barcodeValue = spec.barcode?.trim() || product.code;
   const raw = findRawForProduct(db, product.code);
   const packaging = findPackagingForProduct(db, product.code);
   const accessories = db.accessories.filter((item) =>
@@ -231,7 +216,7 @@ export function PrintSheet({
                 مصانع الزنوكي للأواني المنزلية
               </h1>
               <p className="text-[10px] font-semibold text-slate-500">
-                قطاع التصنيع والتكاليف الصناعية — وثيقة داخلية معتمدة
+                قطاع التصنيع والتكاليف الصناعية · وثيقة داخلية معتمدة
               </p>
             </div>
           </div>
@@ -245,7 +230,7 @@ export function PrintSheet({
         <div className="mt-4 flex items-center justify-between border-b border-slate-300 pb-3">
           <h2 className="text-[15px] font-black text-brand">{title}</h2>
           <span className="text-[10px] font-bold text-slate-500">
-            {isCost ? 'سري — للاستخدام الداخلي' : 'نسخة فنية — إدارة الجودة'}
+            {isCost ? 'سري · للاستخدام الداخلي' : 'نسخة فنية · إدارة الجودة'}
           </span>
         </div>
 
@@ -266,7 +251,7 @@ export function PrintSheet({
           <div className="min-w-0">
             <h3 className="text-[16px] font-black leading-tight">{product.name}</h3>
             <p className="mt-0.5 text-[10px] font-bold text-slate-500">
-              {spec.sizeLabel} — {spec.colorName} — خط {product.family}
+              {spec.sizeLabel} · {spec.colorName} · خط {product.family}
             </p>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[9px]">
               <div>
@@ -297,12 +282,12 @@ export function PrintSheet({
           </div>
 
           <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white p-2">
-            <Barcode value={spec.barcode} />
+            <Barcode value={barcodeValue} />
             <p className="text-[8px] font-bold text-slate-500">
-              باركود المنتج — {isValidEan13(spec.barcode) ? 'EAN-13' : 'Code 128'}
+              باركود المنتج · Code 128
             </p>
             <p className="num text-[8px] font-bold text-slate-600" dir="ltr">
-              {spec.barcode || '—'}
+              {barcodeValue}
             </p>
           </div>
         </section>
@@ -329,7 +314,7 @@ export function PrintSheet({
                 [
                   ['حجم الكرتونة', `${spec.cbm} CBM`],
                   ['وزن الكرتونة الكاملة', `${fmt1(cartonGrossWeight)} كجم`],
-                  ['الإسطمبة', mold ? `${mold.code} — ${mold.name}` : '—'],
+                  ['الإسطمبة', mold ? `${mold.code} · ${mold.name}` : 'غير مسجل'],
                   ['زمن دورة التصنيع', formatCycle(cycle)],
                 ],
               ].map((row, rowIndex) => (
@@ -353,7 +338,7 @@ export function PrintSheet({
           <h4 className={sectionTitle}>
             المواد الخام المباشرة{' '}
             <span className="num text-[9px] font-bold text-slate-400">
-              ({spec.sizeLabel} / {spec.colorName})
+              ({spec.sizeLabel} · {spec.colorName})
             </span>
           </h4>
           <table className="w-full border-collapse text-[8.5px]">
@@ -407,24 +392,23 @@ export function PrintSheet({
               ) : (
                 <tr>
                   <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 6}>
-                    لا توجد مادة خام مرتبطة بهذا المنتج — أضفها من مركز البيانات.
+                    لا توجد مادة خام مرتبطة بهذا المنتج. أضفها من مركز البيانات.
                   </td>
                 </tr>
               )}
               {isCost && raw ? (
                 <tr className="bg-slate-100">
-                  <td className={`${bodyCell} font-black`} colSpan={6}>
+                  <td className={`${bodyCell} font-black`} colSpan={7}>
                     إجمالي تكلفة الخام المباشر للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(rawTotal)} ج.م</td>
-                  <td className={bodyCell} />
                 </tr>
               ) : null}
             </tbody>
           </table>
           {raw ? (
             <p className="mt-1 text-[7.5px] font-medium text-slate-400">
-              وزن القرص المسجل للخامة {raw.discWeightKg.toFixed(3)} كجم — المستهلك لهذه التركيبة{' '}
+              وزن القرص المسجل للخامة {raw.discWeightKg.toFixed(3)} كجم · المستهلك لهذه التركيبة{' '}
               {rawQty.toFixed(3)} كجم. القطر {fmt(raw.diameterCm)} سم والسُمك {fmt1(raw.thicknessMm)} مم.
               {variant?.rawDiscWeightKg ? ' الوزن مخصص لهذه التركيبة.' : ''}
             </p>
@@ -471,7 +455,7 @@ export function PrintSheet({
                           <div className="min-w-0">
                             <span className="block font-bold">{item.name}</span>
                             <span className="block text-[7.5px] text-slate-500">
-                              {item.material || '—'} · {item.origin || '—'}
+                              {item.material || 'غير مسجل'} · {item.origin || 'غير مسجل'}
                             </span>
                           </div>
                         </div>
@@ -536,29 +520,28 @@ export function PrintSheet({
                     <td className={`${bodyCell} num text-slate-400`}>{index + 1}</td>
                     <td className={`${bodyCell} num font-bold`}>{item.code}</td>
                     <td className={`${bodyCell} font-bold`}>{item.name}</td>
-                    <td className={bodyCell}>{item.type || '—'}</td>
-                    <td className={bodyCell}>{item.color || '—'}</td>
-                    <td className={bodyCell}>{item.supplier || '—'}</td>
+                    <td className={bodyCell}>{item.type || 'غير مسجل'}</td>
+                    <td className={bodyCell}>{item.color || 'غير مسجل'}</td>
+                    <td className={bodyCell}>{item.supplier || 'غير مسجل'}</td>
                     {isCost ? (
                       <td className={`${bodyCell} num font-extrabold`}>{money(item.costPerProduct)} ج.م</td>
                     ) : null}
-                    <td className={`${bodyCell} text-[7.5px]`}>{item.notes || '—'}</td>
+                    <td className={`${bodyCell} text-[7.5px]`}>{item.notes || 'لا توجد ملاحظات'}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td className={`${bodyCell} text-center text-slate-500`} colSpan={isCost ? 8 : 7}>
-                    هذا المنتج لا يُرش — لا توجد مواد رش/طلاء مرتبطة به، وتُحتسب تكلفة الرش تلقائيًا = 0.
+                    هذا المنتج لا يُرش. لا توجد مواد رش/طلاء مرتبطة به، وتُحتسب تكلفة الرش تلقائيًا = 0.
                   </td>
                 </tr>
               )}
               {isCost && sprays.length ? (
                 <tr className="bg-slate-100">
-                  <td className={`${bodyCell} font-black`} colSpan={6}>
+                  <td className={`${bodyCell} font-black`} colSpan={7}>
                     إجمالي تكلفة الرش والطلاء للقطعة الواحدة
                   </td>
                   <td className={`${bodyCell} num font-black`}>{money(spraysCost)} ج.م</td>
-                  <td className={bodyCell} />
                 </tr>
               ) : null}
             </tbody>
@@ -588,7 +571,7 @@ export function PrintSheet({
             </div>
             <div className="rounded border border-slate-300 p-1.5">
               <span className="block font-bold text-slate-500">تكلفة التعبئة / قطعة</span>
-              <span className="num font-black">{isCost ? `${money(packagingCost)} ج.م` : '—'}</span>
+              <span className="num font-black">{isCost ? `${money(packagingCost)} ج.م` : 'غير مطلوب'}</span>
             </div>
           </div>
           <table className="w-full border-collapse text-[8px]">
@@ -620,7 +603,7 @@ export function PrintSheet({
                             className="mx-auto h-11 w-11 rounded border border-slate-200 bg-white object-contain"
                           />
                         ) : (
-                          <span className="text-[7px] text-slate-400">—</span>
+                          <span className="text-[7px] text-slate-400">لا توجد صورة</span>
                         )}
                       </td>
                       <td className={`${bodyCell} num font-bold`}>{item.code}</td>
@@ -807,7 +790,7 @@ export function PrintSheet({
             </tbody>
           </table>
           <p className="mt-1 text-[7.5px] font-medium text-slate-400">
-            الحساب من أبعاد ووزن التركيبة المختارة ({spec.sizeLabel} / {spec.colorName})، وسعر البيع المقترح.
+            الحساب من أبعاد ووزن التركيبة المختارة ({spec.sizeLabel} · {spec.colorName})، وسعر البيع المقترح.
             * تقدير المنصات: منصة 1.2×1.0×1.2 م ≈ 1.44 CBM باستغلال 85% ({cartonsPerPallet} كرتونة/منصة).
             بيانات HS والمنشأ والوجهة تُطبع من بطاقة المنتج، وتظهر «غير مسجل» عند غيابها.
           </p>
@@ -858,7 +841,7 @@ export function PrintSheet({
                       <td className={bodyCell}>
                         <span className="block text-[7.5px]">
                           {stage.machineCode
-                            ? `${stage.machineCode} — ${stage.machineName}`
+                            ? `${stage.machineCode} · ${stage.machineName}`
                             : 'عمل يدوي'}
                         </span>
                         <span className="num block text-[7px] text-slate-500">
@@ -869,7 +852,7 @@ export function PrintSheet({
                       <td className={`${bodyCell} num`}>{stage.seconds}</td>
                       <td className={`${bodyCell} num`}>{stage.cumulative}</td>
                       <td className={`${bodyCell} text-[7px] leading-snug`}>
-                        {(stageComponents.get(stage.key) ?? []).join('، ') || '—'}
+                        {(stageComponents.get(stage.key) ?? []).join('، ') || 'بدون مكونات مباشرة'}
                       </td>
                       {isCost ? (
                         <td className={`${bodyCell} num`}>{money(stageCosts[index])} ج.م</td>
@@ -883,7 +866,7 @@ export function PrintSheet({
                   إجمالي زمن التصنيع للقطعة الواحدة
                 </td>
                 <td className={`${bodyCell} num font-black`}>
-                  {cycle} ثانية — {formatCycle(cycle)}
+                  {cycle} ثانية · {formatCycle(cycle)}
                 </td>
               </tr>
               {isCost ? (
@@ -927,7 +910,7 @@ export function PrintSheet({
                         : result.status === 'fail'
                           ? 'غير مطابق ✗'
                           : 'هالك إصلاح ⟳'
-                      : 'لم يُفحص —'}
+                      : 'لم يُفحص بعد'}
                   </span>
                 </div>
               );
@@ -947,9 +930,9 @@ export function PrintSheet({
         </section>
 
         <footer className="mt-5 flex items-center justify-between border-t border-slate-300 pt-2 text-[8px] font-semibold text-slate-400">
-          <span>مصانع الزنوكي للأواني المنزلية — نظام إدارة التكاليف الصناعية</span>
+          <span>مصانع الزنوكي للأواني المنزلية · نظام إدارة التكاليف الصناعية</span>
           <span className="num">
-            ELZ-PP/{product.code} — {docDate()}
+            ELZ-PP/{product.code} · {docDate()}
           </span>
         </footer>
       </div>

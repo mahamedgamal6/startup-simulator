@@ -28,6 +28,9 @@ const products: Product[] = [
     cbm: 0.04,
     pcsPerCarton: 8,
     barcode: '6222042000839',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'المملكة العربية السعودية / الإمارات',
   },
   {
     id: 'prd-01020024',
@@ -42,6 +45,9 @@ const products: Product[] = [
     cbm: 0.06,
     pcsPerCarton: 12,
     barcode: '6222042000686',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'المملكة العربية السعودية / الإمارات',
   },
   {
     id: 'prd-04010020',
@@ -56,6 +62,9 @@ const products: Product[] = [
     cbm: 0.12,
     pcsPerCarton: 10,
     barcode: '6222042000747',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'الاتحاد الأوروبي',
   },
   {
     id: 'prd-05020028',
@@ -70,6 +79,9 @@ const products: Product[] = [
     cbm: 0.05,
     pcsPerCarton: 7,
     barcode: '6222042001515',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'المملكة العربية السعودية',
   },
   {
     id: 'prd-06030022',
@@ -84,6 +96,9 @@ const products: Product[] = [
     cbm: 0.07,
     pcsPerCarton: 8,
     barcode: '6222042002261',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'المملكة العربية السعودية / الكويت',
   },
   {
     id: 'prd-07010026',
@@ -98,6 +113,9 @@ const products: Product[] = [
     cbm: 0.1,
     pcsPerCarton: 6,
     barcode: '6222042003113',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'الاتحاد الأوروبي',
   },
   {
     id: 'prd-03020024',
@@ -112,6 +130,9 @@ const products: Product[] = [
     cbm: 0.05,
     pcsPerCarton: 10,
     barcode: '6222042001959',
+    hsCode: '7615.10.00',
+    originCountry: 'مصر',
+    exportDestination: 'المملكة العربية السعودية',
   },
 ];
 
