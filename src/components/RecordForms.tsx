@@ -115,6 +115,9 @@ export function ProductFormModal({
             cbm: String(product.cbm),
             pcsPerCarton: String(product.pcsPerCarton),
             barcode: product.barcode,
+            hsCode: product.hsCode ?? '',
+            originCountry: product.originCountry ?? '',
+            exportDestination: product.exportDestination ?? '',
           }
         : emptyProduct(),
     );
@@ -142,6 +145,9 @@ export function ProductFormModal({
       cbm: toNumber(form.cbm),
       pcsPerCarton: toNumber(form.pcsPerCarton),
       barcode: form.barcode.trim(),
+      hsCode: form.hsCode.trim(),
+      originCountry: form.originCountry.trim(),
+      exportDestination: form.exportDestination.trim(),
       stageMachines: product?.stageMachines ?? {},
       stageOverrides: product?.stageOverrides ?? {},
     };

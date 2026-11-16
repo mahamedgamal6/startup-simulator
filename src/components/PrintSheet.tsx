@@ -741,7 +741,7 @@ export function PrintSheet({
               </tr>
               <tr>
                 <td className={`${bodyCell} font-bold`}>وجهة التصدير</td>
-                <td className={bodyCell}>{product.exportDestination?.trim() || 'غير محددة'}</td>
+                <td className={bodyCell}>{product.exportDestination?.trim() || 'غير مسجل. عدّله من بطاقة المنتج'}</td>
                 <td className={`${bodyCell} font-bold`}>الوزن الصافي / قائم للحاوية</td>
                 <td className={`${bodyCell} num`}>
                   {fmt1((loads[1]?.pieces ?? 0) * spec.netWeightKg)} / {fmt1((loads[1]?.pieces ?? 0) * spec.grossWeightKg)} كجم
@@ -792,7 +792,7 @@ export function PrintSheet({
           <p className="mt-1 text-[7.5px] font-medium text-slate-400">
             الحساب من أبعاد ووزن التركيبة المختارة ({spec.sizeLabel} · {spec.colorName})، وسعر البيع المقترح.
             * تقدير المنصات: منصة 1.2×1.0×1.2 م ≈ 1.44 CBM باستغلال 85% ({cartonsPerPallet} كرتونة/منصة).
-            بيانات HS والمنشأ والوجهة تُطبع من بطاقة المنتج، وتظهر «غير مسجل» عند غيابها.
+            بيانات HS والمنشأ والوجهة تُطبع كما سُجلت في بطاقة المنتج، ويمكن تعديلها من هناك. لا تُفترض وجهة تصدير تلقائيًا.
           </p>
         </section>
 

@@ -195,13 +195,16 @@ const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 function loadDatabase(): Database {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored)
-      return withComputedCosts({
+    if (!stored) {
+      const seeded = withComputedCosts({
         ...clone(seedDatabase),
         products: applyVariantStore(clone(seedDatabase.products)).map(withProductExportData),
         packaging: applyPackagingMeta(clone(seedDatabase.packaging)),
         sprayCoatings: loadLocalSprays(),
       });
+      markLegacyExportPlaceholdersCleared();
+      return seeded;
+    }
     const parsed = JSON.parse(stored) as Partial<Database>;
     const base = clone(seedDatabase);
     const merged: Database = {
@@ -243,30 +246,68 @@ function loadDatabase(): Database {
           : (base.accessories.find((item) => item.code === accessory.code)?.productCodes ?? []),
       })),
     };
-    return withComputedCosts(normalized);
+    const computed = withComputedCosts(normalized);
+    markLegacyExportPlaceholdersCleared();
+    return computed;
   } catch {
     return withComputedCosts({ ...clone(seedDatabase), sprayCoatings: loadLocalSprays() });
   }
 }
 
 const PRODUCT_EXPORT_FALLBACK = {
-  hsCode: '7615.10.00',
   originCountry: 'مصر',
-  exportDestination: 'حسب طلب العميل',
 };
 
-/** يمنع طباعة حقول تصدير فارغة للمنتجات القديمة أو المنتجات الجديدة غير المكتملة. */
+const EXPORT_CLEANUP_KEY = 'elzonki.export-placeholders-cleared.v1';
+
+/** تُمسح الوجهات التجريبية مرة واحدة فقط، حتى لا يُمحى اختيار المستخدم لاحقًا. */
+const shouldClearLegacyExportPlaceholders = (() => {
+  try {
+    return !localStorage.getItem(EXPORT_CLEANUP_KEY);
+  } catch {
+    return false;
+  }
+})();
+
+const markLegacyExportPlaceholdersCleared = () => {
+  try {
+    localStorage.setItem(EXPORT_CLEANUP_KEY, '1');
+  } catch {
+    /* التخزين غير متاح */
+  }
+};
+
+/** وجهات أضيفت كبيانات تجريبية سابقًا؛ تُمسح حتى لا تُطبع كأنها وجهات فعلية. */
+const LEGACY_PLACEHOLDER_DESTINATIONS = new Set([
+  'المملكة العربية السعودية / الإمارات',
+  'الاتحاد الأوروبي',
+  'المملكة العربية السعودية',
+  'المملكة العربية السعودية / الكويت',
+  'حسب طلب العميل',
+]);
+
+/**
+ * يثبت التصنيف الدولي والمنشأ فقط، ويترك وجهة التصدير كما سجلها المستخدم.
+ * لا نستبدل غياب الوجهة بأي دولة مفترضة.
+ */
 const withProductExportData = (product: Product): Product => {
   const seed = seedDatabase.products.find((row) => row.code === product.code);
+  const recordedHs = product.hsCode?.trim() ?? '';
+  const recordedDestination = product.exportDestination?.trim() ?? '';
   return {
     ...product,
-    hsCode: product.hsCode?.trim() || seed?.hsCode || PRODUCT_EXPORT_FALLBACK.hsCode,
+    // 7615.10.00 كانت إضافة وطنية غير مؤكدة من الإصدار السابق؛ نعود للتصنيف الدولي.
+    hsCode:
+      recordedHs && recordedHs !== '7615.10.00'
+        ? recordedHs
+        : seed?.hsCode || '',
     originCountry:
       product.originCountry?.trim() || seed?.originCountry || PRODUCT_EXPORT_FALLBACK.originCountry,
     exportDestination:
-      product.exportDestination?.trim() ||
-      seed?.exportDestination ||
-      PRODUCT_EXPORT_FALLBACK.exportDestination,
+      shouldClearLegacyExportPlaceholders &&
+      LEGACY_PLACEHOLDER_DESTINATIONS.has(recordedDestination)
+        ? ''
+        : recordedDestination,
   };
 };
 
