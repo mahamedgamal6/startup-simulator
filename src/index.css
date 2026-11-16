@@ -78,8 +78,13 @@
     @apply mb-1.5 block text-[12px] font-bold text-slate-500;
   }
 
-  .field {
+  .field,
+  .input {
     @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-ink outline-none transition placeholder:text-slate-400 focus:border-brand/50 focus:ring-4 focus:ring-brand/10;
+  }
+
+  .input:disabled {
+    @apply cursor-not-allowed border-slate-100 bg-slate-50 text-slate-500;
   }
 
   .scrollbar-thin {
@@ -209,6 +214,7 @@ input[type='range']::-moz-range-thumb {
   html,
   body {
     background: #fff !important;
+    overflow: visible !important;
   }
 
   body > #root > .app-shell {
@@ -277,6 +283,289 @@ input[type='range']::-moz-range-thumb {
   .print-sheet tr {
     break-inside: avoid;
   }
+
+  /* نافذة الخطة تُعرض كـ Portal، لذا نعطّل واجهتها ونطبع ورقة الخطة فقط. */
+  .plan-print-overlay {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  .plan-print-overlay > .absolute {
+    display: none !important;
+  }
+
+  .plan-print-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  .plan-print-modal [data-modal-header],
+  .plan-print-modal [data-modal-footer] {
+    display: none !important;
+  }
+
+  .plan-print-modal [data-modal-body] {
+    flex: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .plan-editor {
+    display: none !important;
+  }
+
+  .plan-print-sheet {
+    display: block !important;
+  }
+
+  .plan-print-block {
+    break-inside: avoid;
+  }
+
+  .plan-print-items {
+    break-inside: auto !important;
+  }
+
+  .plan-print-items tr {
+    break-inside: avoid;
+  }
+
+  .plan-print-items thead {
+    display: table-header-group;
+  }
+}
+
+/* ---------- Production plan print sheet ---------- */
+.plan-print-sheet {
+  color: #0f172a;
+  font-size: 9px;
+  line-height: 1.45;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.plan-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 8px;
+}
+
+.plan-print-brand {
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.plan-print-header h1 {
+  margin: 1px 0 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.plan-print-subtitle {
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.plan-print-doc {
+  min-width: 190px;
+  font-size: 8px;
+}
+
+.plan-print-doc p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 2px;
+}
+
+.plan-print-doc span {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.plan-print-block {
+  margin-top: 8px;
+}
+
+.plan-print-block h2 {
+  margin: 0 0 4px;
+  border-right: 3px solid #b91c1c;
+  background: #f1f5f9;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.plan-print-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e2e8f0;
+}
+
+.plan-print-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.plan-print-grid > div,
+.plan-print-kpis > div {
+  border: 0.5px solid #e2e8f0;
+  padding: 3px 5px;
+}
+
+.plan-print-grid span,
+.plan-print-kpis span {
+  display: block;
+  color: #64748b;
+  font-size: 7.5px;
+  font-weight: 700;
+}
+
+.plan-print-grid strong,
+.plan-print-kpis strong {
+  display: block;
+  margin-top: 1px;
+  color: #0f172a;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.plan-print-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e2e8f0;
+}
+
+.plan-print-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8px;
+}
+
+.plan-print-sheet th,
+.plan-print-sheet td {
+  border: 1px solid #cbd5e1;
+  padding: 3px 4px;
+  text-align: right;
+  vertical-align: top;
+}
+
+.plan-print-sheet th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 900;
+}
+
+.plan-print-sheet tfoot td {
+  background: #f8fafc;
+  font-weight: 900;
+}
+
+.plan-print-code {
+  display: block;
+  color: #64748b;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.plan-print-warning {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  padding: 4px 6px;
+}
+
+.plan-print-warning h2 {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #92400e;
+}
+
+.plan-print-warning ul {
+  margin: 2px 0 0;
+  padding-right: 14px;
+  color: #92400e;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.plan-print-notes {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  padding: 5px 6px;
+  font-size: 8px;
+  white-space: pre-wrap;
+}
+
+.plan-print-snapshot {
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  padding: 4px 6px;
+}
+
+.plan-print-snapshot h2 {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #065f46;
+}
+
+.plan-print-snapshot p {
+  margin: 0;
+  color: #065f46;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.plan-print-signatures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+  break-inside: avoid;
+}
+
+.plan-print-signatures > div {
+  border-top: 1px solid #64748b;
+  padding-top: 3px;
+}
+
+.plan-print-signatures span {
+  display: block;
+  color: #64748b;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.plan-print-signatures strong {
+  display: block;
+  min-height: 14px;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.plan-print-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 4px;
+  color: #64748b;
+  font-size: 7px;
+  font-weight: 700;
 }
 
 /* Keep numeric table cells inside the table layout; inline-block is for badges. */

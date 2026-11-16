@@ -35,6 +35,7 @@ import { useData, makeId } from '../lib/db';
 import { useAuth } from '../auth/AuthContext';
 import { fmt, fmt1, money, pct } from '../lib/format';
 import { exportExcel } from '../lib/io';
+import { PlanPrintSheet } from '../components/PlanPrintSheet';
 import {
   PLAN_STATUS_FLOW,
   PLAN_STATUS_META,
@@ -462,7 +463,9 @@ export function PlanningScreen() {
         onClose={() => setDraft(null)}
         title={draft ? `${draft.name} — ${draft.code}` : ''}
         subtitle="خطة إنتاج مرتبطة بتركيبات المنتجات، مع تكلفة وزمن وطاقة محسوبة من البيانات الفعلية."
-        size="lg"
+        size="xl"
+        overlayClassName="plan-print-overlay"
+        panelClassName="plan-print-modal"
         footer={
           <>
             {draft ? (
@@ -485,7 +488,8 @@ export function PlanningScreen() {
         }
       >
         {draft && metrics ? (
-          <div className="space-y-5">
+          <>
+          <div className="plan-editor space-y-5">
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-mist/60 p-3">
               <Badge tone={PLAN_STATUS_META[draft.status].tone}>{PLAN_STATUS_META[draft.status].label}</Badge>
               {draft.snapshot ? (
@@ -550,47 +554,76 @@ export function PlanningScreen() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="اسم الخطة" wide>
-                <input className="input" value={draft.name} disabled={!editable} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <div>
+                  <p className="text-[12px] font-black text-ink">بيانات الخطة الأساسية</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-slate-400">اسم الخطة ومكان التنفيذ والمسؤول عنها</p>
+                </div>
+                <span className="rounded-full bg-mist px-2 py-0.5 text-[9px] font-bold text-slate-500 num">{draft.code}</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="اسم الخطة" wide>
+                  <input className="input" value={draft.name} disabled={!editable} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+                </Field>
+                <Field label="تاريخ بدء الإنتاج">
+                  <input type="date" className="input num" value={draft.startDate} disabled={!editable} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+                </Field>
+                <Field label="المصنع">
+                  <input className="input" value={draft.factory} disabled={!editable} onChange={(event) => setDraft({ ...draft, factory: event.target.value })} />
+                </Field>
+                <Field label="خط الإنتاج">
+                  <input className="input" value={draft.line} disabled={!editable} onChange={(event) => setDraft({ ...draft, line: event.target.value })} />
+                </Field>
+                <Field label="الوردية">
+                  <input className="input" value={draft.shift} disabled={!editable} onChange={(event) => setDraft({ ...draft, shift: event.target.value })} />
+                </Field>
+                <Field label="المسؤول عن الخطة">
+                  <input className="input" value={draft.owner} disabled={!editable} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <div>
+                  <p className="text-[12px] font-black text-ink">الطاقة والتشغيل</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-slate-400">تُستخدم هذه القيم في حساب الأيام والاختناق واستغلال الطاقة</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="مدة التنفيذ المستهدفة (يوم)">
+                  <input className="input num" type="number" min={0} value={draft.targetDays} disabled={!editable} onChange={(event) => setDraft({ ...draft, targetDays: Number(event.target.value) || 0 })} />
+                </Field>
+                <Field label="ساعات الوردية">
+                  <input className="input num" type="number" min={0.5} step={0.5} value={draft.shiftHours} disabled={!editable} onChange={(event) => setDraft({ ...draft, shiftHours: Number(event.target.value) || 8 })} />
+                </Field>
+                <Field label="عدد الورديات/يوم">
+                  <input className="input num" type="number" min={1} value={draft.shiftsPerDay} disabled={!editable} onChange={(event) => setDraft({ ...draft, shiftsPerDay: Number(event.target.value) || 1 })} />
+                </Field>
+                <Field label="عدد الآلات المتاحة">
+                  <input className="input num" type="number" min={1} value={draft.machinesAvailable} disabled={!editable} onChange={(event) => setDraft({ ...draft, machinesAvailable: Number(event.target.value) || 1 })} />
+                </Field>
+                <Field label="توقف وصيانة مخططة %">
+                  <input className="input num" type="number" min={0} max={90} value={draft.plannedDowntimePct} disabled={!editable} onChange={(event) => setDraft({ ...draft, plannedDowntimePct: Number(event.target.value) || 0 })} />
+                </Field>
+                <Field label="ساعات تجهيز وتغيير مقاسات">
+                  <input className="input num" type="number" min={0} step={0.5} value={draft.setupHours} disabled={!editable} onChange={(event) => setDraft({ ...draft, setupHours: Number(event.target.value) || 0 })} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <Field label="ملاحظات الخطة">
+                <textarea
+                  className="input min-h-[64px] resize-y"
+                  value={draft.notes}
+                  disabled={!editable}
+                  onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                  placeholder="تعليمات التشغيل أو ملاحظات الجودة والتسليم"
+                />
               </Field>
-              <Field label="تاريخ بدء الإنتاج">
-                <input type="date" className="input num" value={draft.startDate} disabled={!editable} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
-              </Field>
-              <Field label="المصنع">
-                <input className="input" value={draft.factory} disabled={!editable} onChange={(event) => setDraft({ ...draft, factory: event.target.value })} />
-              </Field>
-              <Field label="خط الإنتاج">
-                <input className="input" value={draft.line} disabled={!editable} onChange={(event) => setDraft({ ...draft, line: event.target.value })} />
-              </Field>
-              <Field label="الوردية">
-                <input className="input" value={draft.shift} disabled={!editable} onChange={(event) => setDraft({ ...draft, shift: event.target.value })} />
-              </Field>
-              <Field label="المسؤول عن الخطة">
-                <input className="input" value={draft.owner} disabled={!editable} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} />
-              </Field>
-              <Field label="مدة التنفيذ المستهدفة (يوم)">
-                <input className="input num" type="number" min={0} value={draft.targetDays} disabled={!editable} onChange={(event) => setDraft({ ...draft, targetDays: Number(event.target.value) || 0 })} />
-              </Field>
-              <Field label="ساعات الوردية">
-                <input className="input num" type="number" min={0.5} step={0.5} value={draft.shiftHours} disabled={!editable} onChange={(event) => setDraft({ ...draft, shiftHours: Number(event.target.value) || 8 })} />
-              </Field>
-              <Field label="عدد الورديات/يوم">
-                <input className="input num" type="number" min={1} value={draft.shiftsPerDay} disabled={!editable} onChange={(event) => setDraft({ ...draft, shiftsPerDay: Number(event.target.value) || 1 })} />
-              </Field>
-              <Field label="عدد الآلات المتاحة">
-                <input className="input num" type="number" min={1} value={draft.machinesAvailable} disabled={!editable} onChange={(event) => setDraft({ ...draft, machinesAvailable: Number(event.target.value) || 1 })} />
-              </Field>
-              <Field label="توقف وصيانة مخططة %">
-                <input className="input num" type="number" min={0} max={90} value={draft.plannedDowntimePct} disabled={!editable} onChange={(event) => setDraft({ ...draft, plannedDowntimePct: Number(event.target.value) || 0 })} />
-              </Field>
-              <Field label="ساعات تجهيز وتغيير مقاسات">
-                <input className="input num" type="number" min={0} step={0.5} value={draft.setupHours} disabled={!editable} onChange={(event) => setDraft({ ...draft, setupHours: Number(event.target.value) || 0 })} />
-              </Field>
-              <Field label="ملاحظات" wide>
-                <input className="input" value={draft.notes} disabled={!editable} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
-              </Field>
-            </div>
+            </section>
 
             {editable ? (
               <div className="rounded-2xl border border-brand/15 bg-brand-soft/40 p-3">
@@ -854,39 +887,9 @@ export function PlanningScreen() {
               </div>
             ) : null}
 
-            <div className="hidden print:block">
-              <h2 className="text-[16px] font-black">خطة إنتاج: {draft.name} ({draft.code})</h2>
-              <p className="text-[10px]">الحالة: {PLAN_STATUS_META[draft.status].label} — {draft.factory} / {draft.line} / {draft.shift}</p>
-              <p className="text-[10px]">البداية: {draft.startDate} — الانتهاء المتوقع: {metrics.endDate} — الأيام: {metrics.days} — الوحدات: {metrics.unitCount}</p>
-              <table className="mt-2 w-full border-collapse text-[9px]">
-                <thead>
-                  <tr>
-                    {['المنتج', 'الكود', 'المقاس', 'اللون', 'الكمية', 'تكلفة الوحدة', 'إجمالي التكلفة', 'سعر البيع', 'الإيراد'].map((head) => (
-                      <th key={head} className="border border-slate-400 bg-slate-100 p-1 text-right">{head}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {metrics.items.map((row) => (
-                    <tr key={`print-${row.item.id}`}>
-                      <td className="border border-slate-300 p-1">{row.item.productName}</td>
-                      <td className="border border-slate-300 p-1">{row.item.productCode}</td>
-                      <td className="border border-slate-300 p-1">{row.item.sizeLabel}</td>
-                      <td className="border border-slate-300 p-1">{row.item.colorName}</td>
-                      <td className="border border-slate-300 p-1">{row.item.qty}</td>
-                      <td className="border border-slate-300 p-1">{money(row.unitCost)}</td>
-                      <td className="border border-slate-300 p-1">{money(row.totalCost)}</td>
-                      <td className="border border-slate-300 p-1">{money(row.price)}</td>
-                      <td className="border border-slate-300 p-1">{money(row.revenue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-2 text-[9px]">
-                إجمالي التكلفة: {money(metrics.totalCost)} ج.م — الإيراد: {money(metrics.totalRevenue)} ج.م — الربح: {money(metrics.totalProfit)} ج.م — الساعات: {fmt1(metrics.requiredHours + metrics.setupHours)}
-              </p>
-            </div>
           </div>
+          <PlanPrintSheet plan={draft} metrics={metrics} />
+          </>
         ) : null}
       </Modal>
     </div>
